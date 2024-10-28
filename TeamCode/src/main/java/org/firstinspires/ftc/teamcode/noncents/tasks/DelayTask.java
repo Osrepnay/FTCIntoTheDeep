@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.noncents.tasks;
 
+import java.util.Collections;
 import java.util.function.BooleanSupplier;
 
 public class DelayTask extends Task {
@@ -13,7 +14,7 @@ public class DelayTask extends Task {
             public boolean getAsBoolean() {
                 return System.currentTimeMillis() - start >= delay;
             }
-        });
+        }, Collections.emptySet());
         this.delay = delay;
     }
 }

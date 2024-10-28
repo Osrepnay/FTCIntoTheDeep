@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.noncents.tasks;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -9,28 +8,23 @@ import java.util.function.BooleanSupplier;
 public class Task {
     // TODO booleansupplier is not the best interface for this...
     public final BooleanSupplier update;
-    public final Set<String> resources;
+    public final Set<Object> resources;
 
-    private Task(BooleanSupplier update, Set<String> resources) {
+    public Task(BooleanSupplier update, Set<Object> resources) {
         this.update = update;
         this.resources = resources;
     }
 
-    public Task(BooleanSupplier update, String... resources) {
-        this.update = update;
-        this.resources = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(resources)));
-    }
-
-    public Task(Runnable update, String... resources) {
+    public Task(Runnable update, Set<Object> resources) {
         this.update = () -> {
             update.run();
             return true;
         };
-        this.resources = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(resources)));
+        this.resources = resources;
     }
 
     public Task andThen(Task next) {
-        Set<String> newResources = new HashSet<>(resources);
+        Set<Object> newResources = new HashSet<>(resources);
         newResources.addAll(next.resources);
         boolean[] thisIsDone = {false};
         return new Task(
@@ -49,7 +43,7 @@ public class Task {
     }
 
     public Task with(Task with) {
-        Set<String> newResources = new HashSet<>(resources);
+        Set<Object> newResources = new HashSet<>(resources);
         newResources.addAll(with.resources);
         boolean[] doneness = {false, false};
         return new Task(

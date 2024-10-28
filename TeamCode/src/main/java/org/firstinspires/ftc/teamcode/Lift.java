@@ -1,62 +1,93 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.ServoImplEx;
+
+import org.firstinspires.ftc.teamcode.noncents.tasks.DelayTask;
+import org.firstinspires.ftc.teamcode.noncents.tasks.Task;
+
+import java.util.Collections;
 
 public class Lift {
-    public enum WristPosition {
-        TRANSFER(0),
-        SPECIMEN(0),
-        SAMPLE(0);
+    public static final long WRIST_DELAY = 300;
+    public static final double WRIST_TRANSFERRING = 0;
+    public static final double WRIST_UP = 0;
+    public static final double WRIST_DUMP = 0;
 
-        public final double servoPos;
+    public static final long CLAW_DELAY = 100;
+    public static final double CLAW_CLOSED = 0;
+    public static final double CLAW_OPENED = 0;
 
-        WristPosition(double servoPos) {
-            this.servoPos = servoPos;
-        }
-    }
+    public static final int MOTOR_MIN = 0;
+    public static final int MOTOR_MAX = 100;
 
-    public enum ClawPosition {
-        CLOSED(0),
-        OPEN(0);
+    private int motorPos = 0;
 
-        public final double servoPos;
+    private final ServoImplEx liftWrist;
+    private final ServoImplEx liftClaw;
+    private final DcMotorEx liftMotor;
 
-        ClawPosition(double servoPos) {
-            this.servoPos = servoPos;
-        }
-    }
-
-    private final DcMotor lift;
-    private final Servo liftWrist;
-    private final Servo liftClaw;
-
-    private int liftTargetPosition = 0;
-
-    public Lift(DcMotor lift, Servo liftWrist, Servo liftClaw) {
-        lift.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        this.lift = lift;
+    public Lift(ServoImplEx liftWrist, ServoImplEx liftClaw, DcMotorEx liftMotor) {
         this.liftWrist = liftWrist;
         this.liftClaw = liftClaw;
+        this.liftMotor = liftMotor;
+        liftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
     }
 
-    public void setWrist(WristPosition pos) {
-        liftWrist.setPosition(pos.servoPos);
+    public Lift(HardwareMap hardwareMap) {
+        this(
+                hardwareMap.get(ServoImplEx.class, "liftWrist"),
+                hardwareMap.get(ServoImplEx.class, "liftClaw"),
+                hardwareMap.get(DcMotorEx.class, "liftMotor")
+        );
     }
 
-    public void setClaw(ClawPosition pos) {
-        liftClaw.setPosition(pos.servoPos);
+    public void setWrist(double pos) {
+        liftWrist.setPosition(pos);
     }
 
-    public void setLiftTargetPosition(int pos) {
-        liftTargetPosition = Math.max(0, Math.min(100, pos));
-        lift.setTargetPosition(liftTargetPosition);
-        if (Math.abs(lift.getPower()) < 0.002) {
-            lift.setPower(0.1);
-        }
+    public void setClaw(double pos) {
+        liftClaw.setPosition(pos);
     }
 
-    public int getLiftTargetPosition() {
-        return liftTargetPosition;
+    public void setMotorPos(int pos) {
+        int correctedPos = Math.min(MOTOR_MAX, Math.max(MOTOR_MIN, pos));
+        liftMotor.setTargetPosition(correctedPos);
+    }
+
+    public int getMotorPos() {
+        return liftMotor.getTargetPosition();
+    }
+
+    public Task toTransfer() {
+        return new Task(() -> setClaw(CLAW_CLOSED), Collections.emptySet())
+                .with(new DelayTask(CLAW_DELAY))
+                .andThen(new Task(() -> setWrist(WRIST_TRANSFERRING), Collections.emptySet())
+                        .with(new DelayTask(WRIST_DELAY)))
+                .andThen(new Task(() -> {
+                    setMotorPos(0);
+                    return !liftMotor.isBusy();
+                }, Collections.emptySet()))
+                .with(new Task(() -> {}, Collections.singleton(this)));
+    }
+
+    public Task toLift() {
+        return new Task(() -> setClaw(CLAW_CLOSED), Collections.emptySet())
+                .with(new DelayTask(CLAW_DELAY))
+                .andThen(new Task(() -> setWrist(WRIST_UP), Collections.emptySet())
+                        .with(new DelayTask(WRIST_DELAY)));
+    }
+
+    public Task dump() {
+        return new Task(() -> setWrist(WRIST_DUMP), Collections.emptySet())
+                .with(new DelayTask(WRIST_DELAY))
+                .andThen(new Task(() -> setClaw(CLAW_OPENED), Collections.emptySet())
+                        .with(new DelayTask(CLAW_DELAY)))
+                .andThen(new Task(() -> setWrist(WRIST_UP), Collections.emptySet())
+                    .with(new DelayTask(WRIST_DELAY)))
+                .andThen(new Task(() -> setClaw(CLAW_CLOSED), Collections.emptySet())
+                        .with(new DelayTask(CLAW_DELAY)));
     }
 }

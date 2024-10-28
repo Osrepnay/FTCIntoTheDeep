@@ -1,62 +1,89 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.ServoImplEx;
+
+import org.firstinspires.ftc.teamcode.noncents.tasks.DelayTask;
+import org.firstinspires.ftc.teamcode.noncents.tasks.Task;
+
+import java.util.Collections;
 
 public class Extendo {
-    public enum WristPosition {
-        DOWN(0),
-        CLEARANCE(0),
-        TRANSFER(0);
+    public static final long WRIST_DELAY = 300;
+    public static final double WRIST_TRANSFERRING = 0;
+    public static final double WRIST_RAISED = 0;
+    public static final double WRIST_LOWERED = 0;
 
-        public final double servoPos;
+    public static final long CLAW_DELAY = 100;
+    public static final double CLAW_CLOSED = 0;
+    public static final double CLAW_OPENED = 0;
 
-        WristPosition(double servoPos) {
-            this.servoPos = servoPos;
-        }
-    }
+    public static final int MOTOR_MIN = 0;
+    public static final int MOTOR_MAX = 100;
 
-    public enum ClawPosition {
-        CLOSED(0),
-        OPEN(0);
+    private int motorPos = 0;
 
-        public final double servoPos;
+    private final ServoImplEx extendoWrist;
+    private final ServoImplEx extendoClaw;
+    private final DcMotorEx extendoMotor;
 
-        ClawPosition(double servoPos) {
-            this.servoPos = servoPos;
-        }
-    }
-
-    private int extendoTargetPosition = 0;
-
-    private final DcMotor extendo;
-    private final Servo extendoWrist;
-    private final Servo extendoClaw;
-
-    public Extendo(DcMotor extendo, Servo extendoWrist, Servo extendoClaw) {
-        extendo.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        this.extendo = extendo;
+    public Extendo(ServoImplEx extendoWrist, ServoImplEx extendoClaw, DcMotorEx extendoMotor) {
         this.extendoWrist = extendoWrist;
         this.extendoClaw = extendoClaw;
+        this.extendoMotor = extendoMotor;
+        extendoMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
     }
 
-    public void setWrist(WristPosition pos) {
-        extendoWrist.setPosition(pos.servoPos);
+    public Extendo(HardwareMap hardwareMap) {
+        this(
+                hardwareMap.get(ServoImplEx.class, "extendoWrist"),
+                hardwareMap.get(ServoImplEx.class, "extendoClaw"),
+                hardwareMap.get(DcMotorEx.class, "extendoMotor")
+        );
     }
 
-    public void setClaw(ClawPosition pos) {
-        extendoClaw.setPosition(pos.servoPos);
+    public void setWrist(double pos) {
+        extendoWrist.setPosition(pos);
     }
 
-    public void setExtendoTargetPosition(int pos) {
-        extendoTargetPosition = Math.max(0, Math.min(100, pos));
-        extendo.setTargetPosition(extendoTargetPosition);
-        if (Math.abs(extendo.getPower()) < 0.002) {
-            extendo.setPower(0.1);
-        }
+    public void setClaw(double pos) {
+        extendoClaw.setPosition(pos);
     }
 
-    public int getExtendoTargetPosition() {
-        return extendoTargetPosition;
+    public void setMotorPos(int pos) {
+        int correctedPos = Math.min(MOTOR_MAX, Math.max(MOTOR_MIN, pos));
+        extendoMotor.setTargetPosition(correctedPos);
+    }
+
+    public int getMotorPos() {
+        return extendoMotor.getTargetPosition();
+    }
+
+    public Task toTransfer() {
+        return new Task(() -> setClaw(CLAW_CLOSED), Collections.emptySet())
+                .with(new DelayTask(CLAW_DELAY))
+                .andThen(new Task(() -> setWrist(WRIST_TRANSFERRING), Collections.emptySet())
+                        .with(new DelayTask(WRIST_DELAY)))
+                .andThen(new Task(() -> {
+                    setMotorPos(0);
+                    return !extendoMotor.isBusy();
+                }, Collections.emptySet()))
+                .with(new Task(() -> {}, Collections.singleton(this)));
+    }
+
+    public Task toExtend() {
+        return new Task(() -> setClaw(CLAW_CLOSED), Collections.emptySet())
+                .with(new DelayTask(CLAW_DELAY))
+                .andThen(new Task(() -> setWrist(WRIST_RAISED), Collections.emptySet())
+                        .with(new DelayTask(WRIST_DELAY)));
+    }
+
+    public Task toRummage() {
+        return new Task(() -> setClaw(CLAW_OPENED), Collections.emptySet())
+                .with(new DelayTask(CLAW_DELAY))
+                .andThen(new Task(() -> setWrist(WRIST_LOWERED), Collections.emptySet())
+                .with(new DelayTask(WRIST_DELAY)));
     }
 }
