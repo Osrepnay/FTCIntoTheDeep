@@ -14,21 +14,24 @@ public class TaskRunner {
 
     public void sendTask(Task task) {
         if (!Collections.disjoint(consumedResources, task.resources)) {
-            /*
             // remove all conflicting tasks
+            boolean removed = true;
             for (int i = 0; i < runningTasks.size(); i++) {
-                if (!Collections.disjoint(runningTasks.get(i).resources, task.resources)) {
+                if (runningTasks.get(i).cancellable
+                        && !Collections.disjoint(runningTasks.get(i).resources, task.resources)) {
                     consumedResources.removeAll(runningTasks.get(i).resources);
                     runningTasks.remove(i);
-                    i--;
+                    removed = false;
+                    break;
                 }
             }
-            */
-            taskQueue.add(task);
-        } else {
-            runningTasks.add(task);
-            consumedResources.addAll(task.resources);
+            if (removed) {
+                taskQueue.add(task);
+                return;
+            }
         }
+        runningTasks.add(task);
+        consumedResources.addAll(task.resources);
     }
 
     public void update() {

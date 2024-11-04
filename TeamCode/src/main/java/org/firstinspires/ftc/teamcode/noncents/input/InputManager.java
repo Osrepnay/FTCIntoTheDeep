@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 public class InputManager {
-    private List<Trigger> triggers;
+    private final List<Trigger> triggers;
 
     public InputManager() {
         triggers = new ArrayList<>();

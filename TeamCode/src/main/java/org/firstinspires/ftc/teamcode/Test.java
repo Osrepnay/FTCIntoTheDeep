@@ -2,8 +2,6 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 import org.firstinspires.ftc.teamcode.noncents.input.InputManager;
 import org.firstinspires.ftc.teamcode.noncents.input.Trigger;
@@ -11,48 +9,37 @@ import org.firstinspires.ftc.teamcode.noncents.tasks.TaskRunner;
 
 @TeleOp
 public class Test extends OpMode {
-    private DcMotorEx[] wheels;
+    private Drivetrain drivetrain;
     private Robot robot;
     private final InputManager inputManager = new InputManager();
     private final TaskRunner taskRunner = new TaskRunner();
 
-    private boolean isLift = false;
-
     @Override
     public void init() {
-        wheels = new DcMotorEx[]{
-                hardwareMap.get(DcMotorEx.class, "wheelFrontLeft"),
-                hardwareMap.get(DcMotorEx.class, "wheelFrontRight"),
-                hardwareMap.get(DcMotorEx.class, "wheelBackLeft"),
-                hardwareMap.get(DcMotorEx.class, "wheelBackRight")
-        };
-        for (DcMotor wheel : wheels) {
-            wheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        }
-        wheels[0].setDirection(DcMotor.Direction.REVERSE);
-        wheels[2].setDirection(DcMotor.Direction.REVERSE);
-
+        drivetrain = new Drivetrain(hardwareMap);
         robot = new Robot(hardwareMap);
 
         inputManager.addTrigger(new Trigger(
                 Trigger.TriggerType.BEGIN,
                 () -> gamepad1.left_bumper,
-                () -> isLift = !isLift
+                () -> {
+                    Robot.State prev = robot.getState().prev();
+                    if (prev != null) {
+                        robot.toState(prev).ifPresent(taskRunner::sendTask);
+                    }
+                }
         ));
         inputManager.addTrigger(new Trigger(
                 Trigger.TriggerType.BEGIN,
-                () -> gamepad1.x,
-                () -> taskRunner.sendTask(isLift ? robot.lift.toTransfer() : robot.extendo.toTransfer())
-        ));
-        inputManager.addTrigger(new Trigger(
-                Trigger.TriggerType.BEGIN,
-                () -> gamepad1.y,
-                () -> taskRunner.sendTask(isLift ? robot.lift.toLift() : robot.extendo.toExtend())
-        ));
-        inputManager.addTrigger(new Trigger(
-                Trigger.TriggerType.BEGIN,
-                () -> gamepad1.b,
-                () -> taskRunner.sendTask(isLift ? robot.lift.dump() : robot.extendo.toRummage())
+                () -> gamepad1.right_bumper,
+                () -> {
+                    Robot.State next = robot.getState().next();
+                    if (next != null) {
+                        robot.toState(next).ifPresent(taskRunner::sendTask);
+                    } else if (robot.getState() == Robot.State.LIFTING) {
+                        taskRunner.sendTask(robot.dump());
+                    }
+                }
         ));
     }
 
@@ -61,18 +48,11 @@ public class Test extends OpMode {
         inputManager.update();
         taskRunner.update();
 
-        double moveX = gamepad1.right_stick_x;
-        double moveY = -gamepad1.right_stick_y;
-        double rotate = gamepad1.left_stick_x;
-        wheels[0].setPower(moveY + moveX + rotate);
-        wheels[1].setPower(moveY - moveX - rotate);
-        wheels[2].setPower(moveY - moveX + rotate);
-        wheels[3].setPower(moveY + moveX - rotate);
+        drivetrain.setPowers(drivetrain.mix(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x));
 
-        if (isLift) {
-            robot.lift.setMotorPos(robot.lift.getMotorPos() + Math.round(gamepad1.left_trigger * 3));
-        } else {
-            robot.extendo.setMotorPos(robot.extendo.getMotorPos() + Math.round(gamepad1.right_trigger * 3));
-        }
+        // TODO technically correct because of motor lock
+        // very jank though
+        robot.lift.setMotorPos(robot.lift.getMotorPos() + Math.round(gamepad1.left_trigger * 3));
+        robot.extendo.setMotorPos(robot.extendo.getMotorPos() + Math.round(gamepad1.right_trigger * 3));
     }
 }

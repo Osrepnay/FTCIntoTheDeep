@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamcode.noncents.tasks;
 
+import org.firstinspires.ftc.teamcode.noncents.Util;
+
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -8,19 +10,47 @@ import java.util.function.BooleanSupplier;
 public class Task {
     // TODO booleansupplier is not the best interface for this...
     public final BooleanSupplier update;
+    public final boolean cancellable;
     public final Set<Object> resources;
 
-    public Task(BooleanSupplier update, Set<Object> resources) {
+    public Task() {
+        this(() -> true, true, Collections.emptySet());
+    }
+
+    public Task(BooleanSupplier update, boolean cancellable, Set<Object> resources) {
         this.update = update;
+        this.cancellable = cancellable;
         this.resources = resources;
     }
 
-    public Task(Runnable update, Set<Object> resources) {
-        this.update = () -> {
+    public Task update(BooleanSupplier update) {
+        return new Task(update, this.cancellable, this.resources);
+    }
+
+    public Task oneshot(Runnable update) {
+        return new Task(() -> {
             update.run();
             return true;
-        };
-        this.resources = resources;
+        }, this.cancellable, this.resources);
+    }
+
+    public Task continuous(Runnable update) {
+        return new Task(() -> {
+            update.run();
+            return false;
+        }, this.cancellable, this.resources);
+    }
+
+    public Task cancellable(boolean cancellable) {
+        return new Task(this.update, cancellable, this.resources);
+    }
+
+    public Task resources(Set<Object> resources) {
+        return new Task(this.update, this.cancellable, resources);
+    }
+
+    public Task resources(Object... resources) {
+        return new Task(this.update, this.cancellable, Util.setOf(resources));
     }
 
     public Task andThen(Task next) {
@@ -38,6 +68,7 @@ public class Task {
                         return false;
                     }
                 },
+                this.cancellable && next.cancellable,
                 Collections.unmodifiableSet(newResources)
         );
     }
@@ -56,7 +87,19 @@ public class Task {
                     }
                     return doneness[0] && doneness[1];
                 },
+                this.cancellable && with.cancellable,
                 Collections.unmodifiableSet(newResources)
         );
+    }
+
+    public static Task delay(long ms) {
+        long[] start = {-1};
+        return new Task()
+                .update(() -> {
+                    if (start[0] == -1) {
+                        start[0] = System.currentTimeMillis();
+                    }
+                    return System.currentTimeMillis() - start[0] >= ms;
+                });
     }
 }
