@@ -12,7 +12,9 @@ public class Drivetrain {
             wheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
         wheels[0].setDirection(DcMotor.Direction.REVERSE);
+        wheels[1].setDirection(DcMotor.Direction.REVERSE);
         wheels[2].setDirection(DcMotor.Direction.REVERSE);
+        wheels[3].setDirection(DcMotor.Direction.REVERSE);
         this.wheels = wheels;
     }
 
@@ -35,7 +37,7 @@ public class Drivetrain {
     }
 
     public void setPowers(double[] powers) {
-        double max = Integer.MIN_VALUE;
+        double max = 1;
         for (int i = 0; i < wheels.length; i++) {
             max = Math.max(Math.abs(powers[i]), max);
         }

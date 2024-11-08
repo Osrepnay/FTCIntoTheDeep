@@ -34,16 +34,29 @@ public class Robot {
 
     public final Extendo extendo;
     public final Lift lift;
-    private State state;
+    public final Ascenders ascenders;
+    private State state = State.TRANSFER;
 
-    public Robot(Extendo extendo, Lift lift) {
+    public Robot(Extendo extendo, Lift lift, Ascenders ascenders) {
         this.extendo = extendo;
         this.lift = lift;
+        this.ascenders = ascenders;
     }
 
     public Robot(HardwareMap hardwareMap) {
         this.extendo = new Extendo(hardwareMap);
         this.lift = new Lift(hardwareMap);
+        this.ascenders = new Ascenders(hardwareMap);
+    }
+
+    public Task init() {
+        return extendo.retract()
+                .andThen(lift.retract())
+                .andThen(extendo.setClaw(Extendo.CLAW_CLOSED)
+                    .with(extendo.setWrist(Extendo.WRIST_TRANSFERRING))
+                    .andThen(lift.setWrist(Lift.WRIST_TRANSFERRING)
+                            .with(lift.setClaw(Lift.CLAW_OPENED))))
+                .resources(this);
     }
 
     public State getState() {
@@ -72,8 +85,9 @@ public class Robot {
         }
         if (state == State.EXTENDING && toState == State.TRANSFER) {
             transition = extendo.setClaw(Extendo.CLAW_CLOSED)
-                    .andThen(extendo.setWrist(Extendo.WRIST_TRANSFERRING))
+                    .andThen(extendo.setWrist(Extendo.WRIST_RAISED))
                     .andThen(extendo.retract())
+                    .andThen(extendo.setWrist(Extendo.WRIST_TRANSFERRING))
                     .resources(this);
         }
         if (state == State.TRANSFER && toState == State.EXTENDING) {
@@ -83,8 +97,8 @@ public class Robot {
                     .resources(this);
         }
         if (state == State.TRANSFER && toState == State.LIFTING) {
-            transition = extendo.setClaw(Extendo.CLAW_OPENED)
-                    .with(lift.setClaw(Lift.CLAW_CLOSED))
+            transition = lift.setClaw(Lift.CLAW_CLOSED)
+                    .with(Task.delay(200).andThen(extendo.setClaw(Extendo.CLAW_OPENED)))
                     .andThen(lift.setWrist(Lift.WRIST_UP))
                     .andThen(lift.unlock())
                     .resources(this);
@@ -92,8 +106,8 @@ public class Robot {
         if (state == State.LIFTING && toState == State.TRANSFER) {
             transition = lift.retract()
                     .andThen(lift.setWrist(Lift.WRIST_TRANSFERRING))
-                    .andThen(extendo.setClaw(Extendo.CLAW_CLOSED)
-                            .with(lift.setClaw(Lift.CLAW_OPENED)))
+                    .andThen(extendo.setClaw(Extendo.CLAW_CLOSED))
+                    .andThen(lift.setClaw(Lift.CLAW_OPENED))
                     .resources(this);
         }
 

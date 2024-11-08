@@ -14,7 +14,7 @@ public class Task {
     public final Set<Object> resources;
 
     public Task() {
-        this(() -> true, true, Collections.emptySet());
+        this(() -> true, false, Collections.emptySet());
     }
 
     public Task(BooleanSupplier update, boolean cancellable, Set<Object> resources) {

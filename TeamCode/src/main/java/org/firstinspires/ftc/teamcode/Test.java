@@ -41,18 +41,45 @@ public class Test extends OpMode {
                     }
                 }
         ));
+        inputManager.addTrigger(new Trigger(
+                Trigger.TriggerType.BEGIN,
+                () -> gamepad1.x,
+                () -> robot.ascenders.setPower(1)
+        ));
+        inputManager.addTrigger(new Trigger(
+                Trigger.TriggerType.BEGIN,
+                () -> gamepad1.y,
+                () -> robot.ascenders.setPower(-1)
+        ));
+        inputManager.addTrigger(new Trigger(
+                Trigger.TriggerType.END,
+                () -> gamepad1.x || gamepad1.y,
+                () -> robot.ascenders.setPower(0)
+        ));
     }
 
+    boolean first = true;
     @Override
     public void loop() {
-        inputManager.update();
-        taskRunner.update();
+        if (first) {
+            first = false;
+            taskRunner.sendTask(robot.init());
+        }
 
         drivetrain.setPowers(drivetrain.mix(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x));
 
         // TODO technically correct because of motor lock
         // very jank though
-        robot.lift.setMotorPos(robot.lift.getMotorPos() + Math.round(gamepad1.left_trigger * 3));
-        robot.extendo.setMotorPos(robot.extendo.getMotorPos() + Math.round(gamepad1.right_trigger * 3));
+        double power = gamepad1.right_trigger - gamepad1.left_trigger;
+        robot.lift.setMotorPower(power);
+        robot.extendo.setMotorPower(power);
+
+        telemetry.addData("state", robot.getState());
+        telemetry.addData("power", String.valueOf(power));
+        telemetry.addData("extendo", String.valueOf(robot.extendo.getMotorCurrentPosition()));
+        telemetry.addData("lift", String.valueOf(robot.lift.getMotorCurrentPosition()));
+
+        inputManager.update();
+        taskRunner.update();
     }
 }
