@@ -71,7 +71,7 @@ public class Robot {
                 .andThen(lift.setClaw(Lift.CLAW_CLOSED));
     }
 
-    public Optional<Task> toState(State toState) {
+    public Optional<Task> transition(State state, State toState) {
         Task transition = null;
         if (state == State.RUMMAGE && toState == State.EXTENDING) {
             transition = extendo.setClaw(Extendo.CLAW_CLOSED)
@@ -116,7 +116,11 @@ public class Robot {
         if (transition == null) {
             return Optional.empty();
         } else {
-            return Optional.of(new Task().oneshot(() -> state = toState).andThen(transition));
+            return Optional.of(new Task().oneshot(() -> this.state = toState).andThen(transition));
         }
+    }
+
+    public Optional<Task> toState(State fromState) {
+        return transition(state, fromState);
     }
 }

@@ -109,9 +109,9 @@ public class Test extends OpMode {
         }
 
         telemetry.addData("state", robot.getState());
-        telemetry.addData("power", String.valueOf(triggerInput));
-        telemetry.addData("extendo", String.valueOf(robot.extendo.getMotorCurrentPosition()));
-        telemetry.addData("lift", String.valueOf(robot.lift.getMotorCurrentPosition()));
+        telemetry.addData("power", triggerInput);
+        telemetry.addData("extendo", robot.extendo.getMotorCurrentPosition());
+        telemetry.addData("lift", robot.lift.getMotorCurrentPosition());
 
         inputManager.update();
         taskRunner.update();
