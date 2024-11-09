@@ -14,6 +14,8 @@ public class Test extends OpMode {
     private final InputManager inputManager = new InputManager();
     private final TaskRunner taskRunner = new TaskRunner();
 
+    private boolean panic = false;
+
     @Override
     public void init() {
         drivetrain = new Drivetrain(hardwareMap);
@@ -56,6 +58,33 @@ public class Test extends OpMode {
                 () -> gamepad1.x || gamepad1.y,
                 () -> robot.ascenders.setPower(0)
         ));
+
+        inputManager.addTrigger(new Trigger(
+                Trigger.TriggerType.BEGIN,
+                () -> gamepad2.x && gamepad2.y && gamepad2.a && !panic,
+                () -> {
+                    panic = true;
+                    taskRunner.flush();
+                }
+        ));
+        inputManager.addTrigger(new Trigger(
+                Trigger.TriggerType.BEGIN,
+                () -> gamepad2.x && gamepad2.y && gamepad2.a && panic,
+                () -> {
+                    panic = false;
+                    taskRunner.sendTask(robot.init());
+                }
+        ));
+        inputManager.addTrigger(new Trigger(
+                Trigger.TriggerType.BEGIN,
+                () -> panic && gamepad2.x,
+                () -> robot.extendo.setWrist(Extendo.WRIST_TRANSFERRING)
+        ));
+        inputManager.addTrigger(new Trigger(
+                Trigger.TriggerType.BEGIN,
+                () -> panic && gamepad2.y,
+                () -> robot.lift.setWrist(Lift.WRIST_TRANSFERRING)
+        ));
     }
 
     boolean first = true;
@@ -68,14 +97,19 @@ public class Test extends OpMode {
 
         drivetrain.setPowers(drivetrain.mix(-gamepad1.left_stick_y, gamepad1.left_stick_x, gamepad1.right_stick_x));
 
-        // TODO technically correct because of motor lock
-        // very jank though
-        double power = gamepad1.right_trigger - gamepad1.left_trigger;
-        robot.lift.setMotorPower(power);
-        robot.extendo.setMotorPower(power);
+        double triggerInput = gamepad1.right_trigger - gamepad1.left_trigger;
+        if (!panic) {
+            // TODO technically correct because of motor lock
+            // very jank though
+            robot.lift.setMotorInput(triggerInput);
+            robot.extendo.setMotorInput(triggerInput);
+        } else {
+            robot.extendo.setMotorPower(gamepad2.right_trigger - gamepad2.left_trigger);
+            robot.lift.setMotorPower(-gamepad2.right_stick_y);
+        }
 
         telemetry.addData("state", robot.getState());
-        telemetry.addData("power", String.valueOf(power));
+        telemetry.addData("power", String.valueOf(triggerInput));
         telemetry.addData("extendo", String.valueOf(robot.extendo.getMotorCurrentPosition()));
         telemetry.addData("lift", String.valueOf(robot.lift.getMotorCurrentPosition()));
 

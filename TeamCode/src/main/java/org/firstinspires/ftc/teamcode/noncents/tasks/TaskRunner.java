@@ -52,4 +52,10 @@ public class TaskRunner {
             }
         }
     }
+
+    public void flush() {
+        taskQueue.clear();
+        runningTasks.clear();
+        consumedResources.clear();
+    }
 }

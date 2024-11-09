@@ -18,7 +18,7 @@ public class Extendo {
     public static final double CLAW_OPENED = 0.45;
 
     public static final int MOTOR_MIN = 0;
-    public static final int MOTOR_MAX = 2400;
+    public static final int MOTOR_MAX = 3000;
 
     private final ServoWrapper extendoWrist;
     private final ServoWrapper extendoClaw;
@@ -73,19 +73,28 @@ public class Extendo {
         }
     }
 
-    public void setMotorPower(double power) {
-        if (!lock) {
-            if (getMotorCurrentPosition() > MOTOR_MAX && power > 0
-                    || getMotorCurrentPosition() < MOTOR_MIN && power < 0) {
-                power = 0;
-            }
-            if (Math.abs(power) < .01) {
-                setMotorTargetPosition(extendoMotor.getCurrentPosition());
-            } else {
-                extendoMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-                extendoMotor.setPower(power);
-            }
+    public void setMotorInput(double input) {
+        if (lock) {
+            return;
         }
+
+        int motorPos = getMotorCurrentPosition();
+        int slowdownRange = 300;
+        double stallPower = 0.1;
+        int maxDist = MOTOR_MAX - motorPos;
+        if (maxDist < slowdownRange && input > 0) {
+            input *= Math.max(0, (double) maxDist * (1 - stallPower) / slowdownRange + stallPower);
+        }
+        int minDist = motorPos - MOTOR_MIN;
+        if (minDist < slowdownRange && input < 0) {
+            input *= Math.max(0, (double) minDist * (1 - stallPower) / slowdownRange + stallPower);
+        }
+        setMotorPower(input);
+    }
+
+    public void setMotorPower(double power) {
+        extendoMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        extendoMotor.setPower(power);
     }
 
     public int getMotorCurrentPosition() {

@@ -18,7 +18,7 @@ public class Lift {
     public static final double CLAW_OPENED = 0.92;
 
     public static final int MOTOR_MIN = 0;
-    public static final int MOTOR_MAX = 3100;
+    public static final int MOTOR_MAX = 3000;
 
     private final ServoWrapper liftWrist;
     private final ServoWrapper liftClaw;
@@ -57,7 +57,7 @@ public class Lift {
         return new Task().oneshot(() -> {
             setMotorTargetPosition(MOTOR_MIN);
             lock = true;
-        }).andThen(new Task().update(() -> !liftMotor.isBusy()));
+        }).andThen(motorWait());
     }
 
     public Task unlock() {
@@ -67,12 +67,7 @@ public class Lift {
     public void setMotorTargetPosition(int pos) {
         if (!lock) {
             int correctedPos = Math.min(MOTOR_MAX, Math.max(MOTOR_MIN, pos));
-            // less power on retract
-            if (correctedPos == MOTOR_MIN) {
-                liftMotor.setPower(.001);
-            } else {
-                liftMotor.setPower(1);
-            }
+            liftMotor.setPower(1);
             liftMotor.setTargetPosition(correctedPos);
             liftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
         }
@@ -80,32 +75,51 @@ public class Lift {
 
     private boolean isHolding;
 
-    public void setMotorPower(double power) {
-        if (power < 0) {
-            power *= .1;
+    public void setMotorInput(double input) {
+        if (lock) {
+            return;
         }
-        if (!lock) {
-            boolean activelyMoving = Math.abs(power) > .01;
-            boolean overshoot = activelyMoving && (getMotorCurrentPosition() > MOTOR_MAX && power > 0
-                    || getMotorCurrentPosition() < MOTOR_MIN && power < 0);
-            boolean needsToHold = !activelyMoving || overshoot;
-            if (isHolding) {
-                if (!needsToHold) {
-                    isHolding = false;
-                    liftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-                    liftMotor.setPower(power);
-                }
-            } else if (needsToHold) {
+
+        int motorPos = getMotorCurrentPosition();
+        if (Math.abs(input) < 0.01) {
+            if (!isHolding) {
                 isHolding = true;
-                setMotorTargetPosition(Math.min(MOTOR_MAX, Math.max(MOTOR_MIN, getMotorCurrentPosition())));
-            } else {
-                liftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-                liftMotor.setPower(power);
+                setMotorTargetPosition(motorPos);
             }
+            return;
+        } else {
+            isHolding = false;
         }
+
+        int slowdownRange = 150;
+        double stallPower = 0.8;
+        int maxDist = MOTOR_MAX - motorPos;
+        if (maxDist < slowdownRange && input > 0) {
+            input *= Math.max(0, (double) maxDist * (1 - stallPower) / slowdownRange + stallPower);
+        }
+        /*
+        int minDist = Math.abs(motorPos - MOTOR_MIN);
+        if (minDist < slowdownRange && input < 0) {
+            input *= (double) minDist * (1 - stallPower) / slowdownRange + stallPower;
+        }
+        */
+        // gravity
+        if (input < 0) {
+            input *= .65;
+        }
+        setMotorPower(input);
+    }
+
+    public void setMotorPower(double power) {
+        liftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        liftMotor.setPower(power);
     }
 
     public int getMotorCurrentPosition() {
         return liftMotor.getCurrentPosition();
+    }
+
+    public Task motorWait() {
+        return new Task().update(() -> !liftMotor.isBusy());
     }
 }

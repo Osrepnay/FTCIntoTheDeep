@@ -104,11 +104,13 @@ public class Robot {
                     .resources(this);
         }
         if (state == State.LIFTING && toState == State.TRANSFER) {
-            transition = lift.retract()
-                    .andThen(lift.setWrist(Lift.WRIST_TRANSFERRING))
-                    .andThen(extendo.setClaw(Extendo.CLAW_CLOSED))
-                    .andThen(lift.setClaw(Lift.CLAW_OPENED))
-                    .resources(this);
+            if (lift.getMotorCurrentPosition() < 1000) {
+                transition = lift.retract()
+                        .andThen(lift.setWrist(Lift.WRIST_TRANSFERRING))
+                        .andThen(extendo.setClaw(Extendo.CLAW_CLOSED))
+                        .andThen(lift.setClaw(Lift.CLAW_OPENED))
+                        .resources(this);
+            }
         }
 
         if (transition == null) {
