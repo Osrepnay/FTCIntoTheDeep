@@ -46,6 +46,7 @@ public class Lift {
     }
 
     public Task setWrist(double pos) {
+        System.out.println("elsjliejfs");
         return liftWrist.setPosition(pos);
     }
 

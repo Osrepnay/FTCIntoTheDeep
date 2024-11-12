@@ -33,25 +33,25 @@ public class Aurug extends OpMode {
     public void init() {
         robot = new Robot(hardwareMap);
         taskRunner = new TaskRunner();
-        drive = new MecanumDrive(hardwareMap, new Pose2d(-1.5 * TILE + 2, -2.5 * TILE, Math.toRadians(90)));
+        drive = new MecanumDrive(hardwareMap, new Pose2d(-1.5 * TILE, -2.5 * TILE - 3, Math.toRadians(90)));
         TrajectoryActionBuilder toFirst = drive.actionBuilder(drive.pose)
                 .splineTo(new Vector2d(-2 * TILE - 1, -1.5 * TILE), Math.toRadians(90))
                 .splineTo(new Vector2d(-2 * TILE - 1, -1 * TILE - 7), Math.toRadians(90));
         TrajectoryActionBuilder toBasketFirst = toFirst.fresh()
                 .setReversed(true)
-                .splineTo(new Vector2d(-2.5 * TILE, -2.5 * TILE), Math.toRadians(225));
+                .splineTo(new Vector2d(-2.5 * TILE, -2.2 * TILE), Math.toRadians(225));
         TrajectoryActionBuilder firstBasketRetreat = toBasketFirst.fresh()
                 .setReversed(false)
-                .splineTo(new Vector2d(-2.5 * TILE + 3, -2.5 * TILE + 3), Math.toRadians(45));
+                .splineTo(new Vector2d(-2.5 * TILE + 3, -2.2 * TILE + 3), Math.toRadians(45));
         TrajectoryActionBuilder toSecond = toBasketFirst.fresh()
                 .setReversed(false)
                 .splineTo(new Vector2d(-2.5 * TILE, -1 * TILE - 7), Math.toRadians(90));
         TrajectoryActionBuilder toBasketSecond = toSecond.fresh()
                 .setReversed(true)
-                .splineTo(new Vector2d(-2.5 * TILE, -2.5 * TILE), Math.toRadians(225));
+                .splineTo(new Vector2d(-2.5 * TILE, -2.2 * TILE), Math.toRadians(225));
         TrajectoryActionBuilder secondBasketRetreat = toBasketSecond.fresh()
                 .setReversed(false)
-                .splineTo(new Vector2d(-2.5 * TILE + 3, -2.5 * TILE + 3), Math.toRadians(45));
+                .splineTo(new Vector2d(-2.5 * TILE + 3, -2.2 * TILE + 3), Math.toRadians(45));
         taskRunner.sendTask(actionToTask(new SequentialAction(
                 taskToAction(
                         robot.transition(Robot.State.TRANSFER, Robot.State.EXTENDING).get()

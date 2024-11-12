@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.teamcode.noncents.input.InputManager;
 import org.firstinspires.ftc.teamcode.noncents.input.Trigger;
@@ -13,11 +14,13 @@ public class Test extends OpMode {
     private Robot robot;
     private final InputManager inputManager = new InputManager();
     private final TaskRunner taskRunner = new TaskRunner();
+    private Servo shit;
 
     private boolean panic = false;
 
     @Override
     public void init() {
+        shit = hardwareMap.get(Servo.class, "liftWrist");
         drivetrain = new Drivetrain(hardwareMap);
         robot = new Robot(hardwareMap);
 
@@ -61,7 +64,7 @@ public class Test extends OpMode {
 
         inputManager.addTrigger(new Trigger(
                 Trigger.TriggerType.BEGIN,
-                () -> gamepad2.x && gamepad2.y && gamepad2.a && !panic,
+                () -> gamepad2.left_bumper && gamepad2.right_bumper && !panic,
                 () -> {
                     panic = true;
                     taskRunner.flush();
@@ -69,7 +72,7 @@ public class Test extends OpMode {
         ));
         inputManager.addTrigger(new Trigger(
                 Trigger.TriggerType.BEGIN,
-                () -> gamepad2.x && gamepad2.y && gamepad2.a && panic,
+                () -> gamepad2.left_bumper && gamepad2.right_bumper && panic,
                 () -> {
                     panic = false;
                     taskRunner.sendTask(robot.init());
@@ -107,11 +110,17 @@ public class Test extends OpMode {
             robot.extendo.setMotorPower(gamepad2.right_trigger - gamepad2.left_trigger);
             robot.lift.setMotorPower(-gamepad2.right_stick_y);
         }
+        if (gamepad1.dpad_up) {
+            shit.setPosition(0.1);
+        }
+        telemetry.addData("dump", gamepad1.dpad_up);
 
         telemetry.addData("state", robot.getState());
-        telemetry.addData("power", triggerInput);
+        telemetry.addData("panic", panic);
         telemetry.addData("extendo", robot.extendo.getMotorCurrentPosition());
         telemetry.addData("lift", robot.lift.getMotorCurrentPosition());
+        telemetry.addData("left", gamepad2.left_bumper);
+        telemetry.addData("right", gamepad2.right_bumper);
 
         inputManager.update();
         taskRunner.update();
