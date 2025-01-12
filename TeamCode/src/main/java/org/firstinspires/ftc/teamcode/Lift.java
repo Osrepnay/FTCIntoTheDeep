@@ -4,83 +4,113 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
+import com.qualcomm.robotcore.hardware.VoltageSensor;
 
+import org.firstinspires.ftc.teamcode.noncents.PIDController;
 import org.firstinspires.ftc.teamcode.noncents.tasks.Task;
 
 public class Lift {
-    public static final long WRIST_DELAY = 500;
-    public static final double WRIST_TRANSFERRING = .965;
-    public static final double WRIST_UP = 0.56;
-    public static final double WRIST_DUMP = 0.1;
+    public static final long WRIST_DELAY = 1100;
+    public static final double WRIST_TRANSFERRING = 0.80;
+    public static final double WRIST_LIFT = 0.4;
+    public static final double WRIST_SPEC = 0.28;
+    public static final double WRIST_DUMP = 0.15;
 
-    public static final long CLAW_DELAY = 300;
-    public static final double CLAW_CLOSED = 0.73;
-    public static final double CLAW_OPENED = 0.92;
+    public static final long CLAW_DELAY = 800;
+    public static final double CLAW_CLOSED = 0.46;
+    public static final double CLAW_OPENED = 0.56;
 
+    public static final double MOTOR_CLIP_POWER = -0.5;
     public static final int MOTOR_MIN = 0;
-    public static final int MOTOR_MAX = 3000;
+    public static final int MOTOR_CHAMBER_SCORE_SETUP = 800;
+    // public static final int MOTOR_CHAMBER_SCORE_CLIP = 150;
+    public static final int MOTOR_MAX = 2400;
+
+    public final int LIFT_TOLERANCE_TICKS = 10;
 
     private final ServoWrapper liftWrist;
     private final ServoWrapper liftClaw;
-    private final DcMotorEx liftMotor;
+    private final DcMotorEx liftMotorLeft;
+    private final DcMotorEx liftMotorRight;
+    private final VoltageSensor voltageSensor;
 
-    boolean lock = true;
+    private final PIDController pid = new PIDController(0.008, 0.0001, 0.25, 1000);
+    private final double HOLD_800 = 0.05;
+    private final double HOLD_1600 = 0.10;
+    private final double HOLD_2400 = 0.15;
 
-    public Lift(ServoWrapper liftWrist, ServoWrapper liftClaw, DcMotorEx liftMotor) {
+    private boolean pidControlled = true;
+    public double liftSetpoint = MOTOR_MIN;
+    private long last = System.currentTimeMillis();
+
+    public Lift(ServoWrapper liftWrist, ServoWrapper liftClaw, DcMotorEx liftMotorLeft, DcMotorEx liftMotorRight,
+                VoltageSensor voltageSensor) {
         this.liftWrist = liftWrist;
         this.liftClaw = liftClaw;
-        this.liftMotor = liftMotor;
-        liftMotor.setDirection(DcMotor.Direction.REVERSE);
-        liftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        liftMotor.setTargetPosition(MOTOR_MIN);
-        liftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        liftMotor.setPower(1);
+        this.liftMotorLeft = liftMotorLeft;
+        this.liftMotorRight = liftMotorRight;
+        this.voltageSensor = voltageSensor;
+        liftMotorLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        liftMotorLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        liftMotorRight.setDirection(DcMotor.Direction.REVERSE);
+        liftMotorRight.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        liftMotorRight.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
     }
 
     public Lift(HardwareMap hardwareMap) {
         this(
-                new ServoWrapper(hardwareMap.get(ServoImplEx.class, "liftWrist"), WRIST_DELAY),
+                new ServoWrapper(hardwareMap.get(ServoImplEx.class, "liftPivot"), WRIST_DELAY),
                 new ServoWrapper(hardwareMap.get(ServoImplEx.class, "liftClaw"), CLAW_DELAY),
-                hardwareMap.get(DcMotorEx.class, "liftMotor")
+                hardwareMap.get(DcMotorEx.class, "liftLeft"),
+                hardwareMap.get(DcMotorEx.class, "liftRight"),
+                hardwareMap.get(VoltageSensor.class, "Control Hub")
         );
     }
 
+    public void update() {
+        if (pidControlled) {
+            double power = pid.update(liftSetpoint, liftMotorLeft.getCurrentPosition());
+            if (liftSetpoint <= 800) {
+                power += HOLD_800;
+            } else if (liftSetpoint < 1600) {
+                power += HOLD_1600;
+            } else {
+                power += HOLD_2400;
+            }
+            double voltage = voltageSensor.getVoltage();
+            power *= 12 / voltage;
+            liftMotorLeft.setPower(power);
+            liftMotorRight.setPower(power);
+        }
+    }
+
     public Task setWrist(double pos) {
-        System.out.println("elsjliejfs");
-        return liftWrist.setPosition(pos);
+        return liftWrist.setPosition(pos).resources(this);
     }
 
     public Task setClaw(double pos) {
-        return liftClaw.setPosition(pos);
+        return liftClaw.setPosition(pos).resources(this);
+    }
+
+    public Task liftTo(int pos) {
+        return new Task().oneshot(() -> {
+            setMotorTargetPosition(pos);
+        }).andThen(motorWait()).resources(this);
     }
 
     public Task retract() {
-        return new Task().oneshot(() -> {
-            setMotorTargetPosition(MOTOR_MIN);
-            lock = true;
-        }).andThen(motorWait());
-    }
-
-    public Task unlock() {
-        return new Task().oneshot(() -> lock = false);
+        return liftTo(MOTOR_MIN);
     }
 
     public void setMotorTargetPosition(int pos) {
-        if (!lock) {
-            int correctedPos = Math.min(MOTOR_MAX, Math.max(MOTOR_MIN, pos));
-            liftMotor.setPower(1);
-            liftMotor.setTargetPosition(correctedPos);
-            liftMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        }
+        liftSetpoint = Math.min(MOTOR_MAX, Math.max(MOTOR_MIN, pos));
+        pid.reset();
+        pidControlled = true;
     }
 
     private boolean isHolding;
 
     public void setMotorInput(double input) {
-        if (lock) {
-            return;
-        }
-
         int motorPos = getMotorCurrentPosition();
         if (Math.abs(input) < 0.01) {
             if (!isHolding) {
@@ -105,22 +135,32 @@ public class Lift {
         }
         */
         // gravity
+        /*
         if (input < 0) {
             input *= .65;
         }
+         */
         setMotorPower(input);
     }
 
     public void setMotorPower(double power) {
-        liftMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        liftMotor.setPower(power);
+        pidControlled = false;
+        liftMotorLeft.setPower(power);
+        liftMotorRight.setPower(power);
     }
 
     public int getMotorCurrentPosition() {
-        return liftMotor.getCurrentPosition();
+        return liftMotorLeft.getCurrentPosition();
+    }
+
+    public void resetMotor() {
+        liftMotorLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        liftMotorLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
     }
 
     public Task motorWait() {
-        return new Task().update(() -> !liftMotor.isBusy());
+        return new Task().update(() -> !pidControlled
+                        || Math.abs(getMotorCurrentPosition() - liftSetpoint) <= LIFT_TOLERANCE_TICKS)
+                .resources(this);
     }
 }

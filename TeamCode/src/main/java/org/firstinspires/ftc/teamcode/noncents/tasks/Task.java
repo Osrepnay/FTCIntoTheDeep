@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 public class Task {
     // TODO booleansupplier is not the best interface for this...
@@ -53,6 +54,13 @@ public class Task {
         return new Task(this.update, this.cancellable, Util.setOf(resources));
     }
 
+    public Task withPrecondition(BooleanSupplier precond) {
+        boolean[] condResult = {false};
+        return new Task()
+                .oneshot(() -> condResult[0] = precond.getAsBoolean())
+                .andThen(new Task().update(() -> !condResult[0] || update.getAsBoolean()));
+    }
+
     public Task andThen(Task next) {
         Set<Object> newResources = new HashSet<>(resources);
         newResources.addAll(next.resources);
@@ -90,6 +98,14 @@ public class Task {
                 this.cancellable && with.cancellable,
                 Collections.unmodifiableSet(newResources)
         );
+    }
+
+    // TODO this is bad, we can't have resource copying or whatnot with this
+    public static Task defer(Supplier<Task> supplier) {
+        Task[] tasks = new Task[1];
+        return new Task()
+                .oneshot(() -> tasks[0] = supplier.get())
+                .andThen(new Task().update(() -> tasks[0].update.getAsBoolean()));
     }
 
     public static Task delay(long ms) {

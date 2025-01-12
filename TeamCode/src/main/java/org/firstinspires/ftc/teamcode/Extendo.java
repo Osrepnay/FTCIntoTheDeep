@@ -1,104 +1,106 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.noncents.tasks.Task;
 
 public class Extendo {
-    public static final long WRIST_DELAY = 500;
-    public static final double WRIST_TRANSFERRING = 0.7;
-    public static final double WRIST_RAISED = 0.35;
-    public static final double WRIST_LOWERED = 0.13;
+    public static final long WRIST_DELAY = 1400;
+    public static final double WRIST_TRANSFERRING = 0.735;
+    public static final double WRIST_RAISED = 0.18;
+    public static final double WRIST_SPEC = 0.105;
+    public static final double WRIST_SAMPLE = 0.056;
 
-    public static final long CLAW_DELAY = 300;
-    public static final double CLAW_CLOSED = 0.56;
-    public static final double CLAW_OPENED = 0.45;
+    // public static final long INTAKE_DELAY = 300;
+    public static final double INTAKE_OFF = 0;
+    public static final double INTAKE_ON = 1;
+    public static final double INTAKE_VOMIT = -1;
 
-    public static final int MOTOR_MIN = 0;
-    public static final int MOTOR_MAX = 3000;
+    public static final long EXTENDO_DELAY = 1200;
+
+    public static final double LEFT_RETRACTED = 0.492;
+    public static final double LEFT_EXTENDED = 0.73;
+
+    public static final double RIGHT_RETRACTED = 0.48;
+    public static final double RIGHT_EXTENDED = 0.235;
 
     private final ServoWrapper extendoWrist;
-    private final ServoWrapper extendoClaw;
-    private final DcMotorEx extendoMotor;
+    private final CRServo extendoIntake;
+    private final ServoWrapper extendoLeft;
+    private final ServoWrapper extendoRight;
+    private final DistanceSensor extendoDist;
 
-    private boolean lock = false;
-
-    public Extendo(ServoWrapper extendoWrist, ServoWrapper extendoClaw, DcMotorEx extendoMotor) {
+    public Extendo(ServoWrapper extendoWrist, CRServo extendoIntake, ServoWrapper extendoLeft,
+                   ServoWrapper extendoRight, DistanceSensor extendoDist) {
         this.extendoWrist = extendoWrist;
-        this.extendoClaw = extendoClaw;
-        this.extendoMotor = extendoMotor;
-        extendoMotor.setDirection(DcMotor.Direction.REVERSE);
-        extendoMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        extendoMotor.setTargetPosition(MOTOR_MIN);
-        extendoMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        extendoMotor.setPower(1);
+        this.extendoIntake = extendoIntake;
+        this.extendoLeft = extendoLeft;
+        this.extendoRight = extendoRight;
+        this.extendoDist = extendoDist;
     }
 
     public Extendo(HardwareMap hardwareMap) {
         this(
-                new ServoWrapper(hardwareMap.get(ServoImplEx.class, "extendoWrist"), WRIST_DELAY),
-                new ServoWrapper(hardwareMap.get(ServoImplEx.class, "extendoClaw"), CLAW_DELAY),
-                hardwareMap.get(DcMotorEx.class, "extendoMotor")
+                new ServoWrapper(hardwareMap.get(ServoImplEx.class, "extendoPivot"), WRIST_DELAY),
+                hardwareMap.get(CRServo.class, "intake"),
+                new ServoWrapper(hardwareMap.get(ServoImplEx.class, "extendoLeft"), EXTENDO_DELAY),
+                new ServoWrapper(hardwareMap.get(ServoImplEx.class, "extendoRight"), EXTENDO_DELAY),
+                hardwareMap.get(DistanceSensor.class, "extendoDist")
         );
     }
 
     public Task setWrist(double pos) {
-        return extendoWrist.setPosition(pos);
+        return extendoWrist.setPosition(pos).resources(this);
     }
 
-    public Task setClaw(double pos) {
-        return extendoClaw.setPosition(pos);
+    public Task setIntake(double power) {
+        return new Task().oneshot(() -> extendoIntake.setPower(power)).resources(this);
     }
 
     public Task retract() {
-        return new Task().oneshot(() -> {
-            setMotorTargetPosition(MOTOR_MIN);
-            lock = true;
-        }).andThen(new Task().update(() -> !extendoMotor.isBusy()));
+        return extendoLeft.setPosition(LEFT_RETRACTED).with(extendoRight.setPosition(RIGHT_RETRACTED)).resources(this);
     }
 
-    public Task unlock() {
-        return new Task().oneshot(() -> lock = false);
+    public Task extendHalf() {
+        return extendoLeft.setPosition((LEFT_EXTENDED + LEFT_RETRACTED) / 2).with(extendoRight.setPosition((RIGHT_EXTENDED + RIGHT_RETRACTED) / 2)).resources(this);
     }
 
-    public void setMotorTargetPosition(int pos) {
-        if (!lock) {
-            int correctedPos = Math.min(MOTOR_MAX, Math.max(MOTOR_MIN, pos));
-            extendoMotor.setTargetPosition(correctedPos);
-            extendoMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-            extendoMotor.setPower(1);
+    public Task extend() {
+        return extendoLeft.setPosition(LEFT_EXTENDED).with(extendoRight.setPosition(RIGHT_EXTENDED)).resources(this);
+    }
+
+    public Task spew() {
+        double[] oldIntake = {0};
+        return new Task().oneshot(() -> oldIntake[0] = extendoIntake.getPower())
+                .andThen(setIntake(INTAKE_VOMIT))
+                .andThen(Task.delay(500))
+                .andThen(Task.defer(() -> setIntake(oldIntake[0])))
+                .resources(this);
+    }
+
+    public boolean hasSample() {
+        return extendoDist.getDistance(DistanceUnit.CM) < 5;
+    }
+
+    public boolean hasCorrectSample() {
+        /*
+        int[] colors = {extendoColor.red(), extendoColor.green(), extendoColor.blue()};
+        int maxIdx = 0;
+        for (int i = 1; i < colors.length; i++) {
+            if (colors[i] > colors[maxIdx]) {
+                maxIdx = i;
+            }
         }
-    }
-
-    public void setMotorInput(double input) {
-        if (lock) {
-            return;
-        }
-
-        int motorPos = getMotorCurrentPosition();
-        int slowdownRange = 300;
-        double stallPower = 0.1;
-        int maxDist = MOTOR_MAX - motorPos;
-        if (maxDist < slowdownRange && input > 0) {
-            input *= Math.max(0, (double) maxDist * (1 - stallPower) / slowdownRange + stallPower);
-        }
-        int minDist = motorPos - MOTOR_MIN;
-        if (minDist < slowdownRange && input < 0) {
-            input *= Math.max(0, (double) minDist * (1 - stallPower) / slowdownRange + stallPower);
-        }
-        setMotorPower(input);
-    }
-
-    public void setMotorPower(double power) {
-        extendoMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        extendoMotor.setPower(power);
-    }
-
-    public int getMotorCurrentPosition() {
-        return extendoMotor.getCurrentPosition();
+        boolean colorValid = maxIdx == 1
+                || (Color.currentColor == Color.RED
+                ? maxIdx == 0
+                : maxIdx == 2);
+         */
+        return hasSample();
     }
 
 }

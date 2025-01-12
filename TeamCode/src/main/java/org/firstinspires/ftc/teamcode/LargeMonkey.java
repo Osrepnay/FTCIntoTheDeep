@@ -10,7 +10,7 @@ import org.firstinspires.ftc.teamcode.noncents.input.Trigger;
 import org.firstinspires.ftc.teamcode.noncents.tasks.TaskRunner;
 
 @Autonomous
-public class Aurug extends OpMode {
+public class LargeMonkey extends OpMode {
     Robot robot;
     TaskRunner taskRunner;
     MecanumDrive drive;
@@ -36,16 +36,17 @@ public class Aurug extends OpMode {
                 () -> robot.extendo.setIntake(Extendo.INTAKE_OFF)
         ));
         Pose2d basket = new Pose2d(-2.4 * TILE, -2.4 * TILE, Math.toRadians(45));
-        Pose2d first = new Pose2d(-2 * TILE - 0.5, -2 * TILE - 5, Math.toRadians(90));
+        Pose2d first = new Pose2d(-2 * TILE + 1, -2 * TILE - 3, Math.toRadians(90));
         Pose2d firstPushed = forward(first, 8);
-        Pose2d second = new Pose2d(-2.5 * TILE + 2, -2 * TILE - 5, Math.toRadians(90));
+        Pose2d second = new Pose2d(-2.5 * TILE + 2, -2 * TILE - 3, Math.toRadians(88));
         Pose2d secondPushed = forward(second, 8);
-        Pose2d third = new Pose2d(-2.5 * TILE + 0.5, -2 * TILE - 2, Math.toRadians(109));
+        Pose2d third = new Pose2d(-2.5 * TILE + 1, -2 * TILE - 2, Math.toRadians(107));
         Pose2d thirdPushed = forward(third, 6);
         taskRunner.sendTask(robot.init());
         taskRunner.sendTask(new TrajectoryTaskBuilder(drive.actionBuilder(drive.pose))
                 .andThen(t -> t.strafeToLinearHeading(basket.position, basket.heading))
                 .withLast(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
+                .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
                 .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
 
                 .andThen(t -> t.endTrajectory().fresh().strafeToLinearHeading(first.position, first.heading))
@@ -69,6 +70,7 @@ public class Aurug extends OpMode {
                 .andThen(t -> t.endTrajectory().fresh().strafeToLinearHeading(basket.position, basket.heading))
                 .withLast(robot.transitionTask(Robot.Input.RIGHT_BUMPER)
                         .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
+                        .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
                         .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER)))
                 .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
 
@@ -79,6 +81,7 @@ public class Aurug extends OpMode {
                 .andThen(t -> t.endTrajectory().fresh().strafeToConstantHeading(thirdPushed.position))
                 .andThen(t -> t.endTrajectory().fresh().strafeToLinearHeading(basket.position, basket.heading))
                 .withLast(robot.transitionTask(Robot.Input.RIGHT_BUMPER)
+                        .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
                         .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
                         .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER)))
                 .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER))

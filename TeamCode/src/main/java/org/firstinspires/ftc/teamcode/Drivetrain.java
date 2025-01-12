@@ -28,6 +28,22 @@ public class Drivetrain {
     }
 
     public double[] mix(double forward, double lateral, double rotate) {
+        Lerp forwardLerp = new Lerp(new double[][] {
+                {0, 0},
+                {0.02, 0.08},
+                {0.5, 0.35},
+                {1, 1}
+        });
+        Lerp lateralLerp = forwardLerp;
+        Lerp rotateLerp = new Lerp(new double[][] {
+                {0, 0},
+                {0.02, 0.08},
+                {0.7, 0.35},
+                {1, 1}
+        });;
+        forward = forwardLerp.interpolateMagnitude(forward);
+        lateral = lateralLerp.interpolateMagnitude(lateral);
+        rotate = rotateLerp.interpolateMagnitude(rotate);
         return new double[]{
                 forward + lateral + rotate,
                 forward - lateral - rotate,

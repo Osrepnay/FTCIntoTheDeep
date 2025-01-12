@@ -10,7 +10,7 @@ public class PIDController {
     private boolean firstLoop = true;
     private long lastTime = 0;
     private double lastError = 0;
-    private double errorAccum = 0;
+    public double errorAccum = 0;
 
     public PIDController(double proportional, double integral, double derivative) {
         this.proportional = proportional;
@@ -26,7 +26,8 @@ public class PIDController {
         this.integralCap = integralCap;
     }
 
-    public double update(double setpoint, double value, long time) {
+    public double update(double setpoint, double value) {
+        long time = System.currentTimeMillis();
         double error = setpoint - value;
         if (firstLoop) {
             lastTime = time;
@@ -39,6 +40,18 @@ public class PIDController {
         double p = proportional * error;
         double i = integral * errorAccum;
         double d = derivative * (error - lastError) / delta;
+        if (Double.isNaN(d)) {
+            d = 0;
+        }
+        lastTime = time;
+        lastError = error;
         return p + i + d;
+    }
+
+    public void reset() {
+        firstLoop = true;
+        lastTime = 0;
+        lastError = 0;
+        errorAccum = 0;
     }
 }

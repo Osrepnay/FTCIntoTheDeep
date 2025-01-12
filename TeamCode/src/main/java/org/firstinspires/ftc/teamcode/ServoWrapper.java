@@ -18,7 +18,8 @@ public class ServoWrapper {
     }
 
     public Task setPosition(double pos) {
-        Task delayTask = Task.delay(moveDelay);
+        double diff = Math.abs(pos - lastChangeTo);
+        Task delayTask = Task.delay((long) (moveDelay * diff));
         boolean[] first = {true};
         return new Task()
                 .update(() -> {

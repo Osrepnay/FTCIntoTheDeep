@@ -29,9 +29,10 @@ public class TaskRunner {
                 taskQueue.add(task);
                 return;
             }
+        } else {
+            runningTasks.add(task);
+            consumedResources.addAll(task.resources);
         }
-        runningTasks.add(task);
-        consumedResources.addAll(task.resources);
     }
 
     public void update() {
