@@ -15,23 +15,31 @@ public class TaskRunner {
     public void sendTask(Task task) {
         if (!Collections.disjoint(consumedResources, task.resources)) {
             // remove all conflicting tasks
-            boolean removed = true;
+            boolean removed = false;
             for (int i = 0; i < runningTasks.size(); i++) {
-                if (runningTasks.get(i).cancellable
-                        && !Collections.disjoint(runningTasks.get(i).resources, task.resources)) {
-                    consumedResources.removeAll(runningTasks.get(i).resources);
-                    runningTasks.remove(i);
-                    removed = false;
+                if (!Collections.disjoint(runningTasks.get(i).resources, task.resources)) {
+                    if (runningTasks.get(i).cancellable) {
+                        consumedResources.removeAll(runningTasks.get(i).resources);
+                        runningTasks.remove(i);
+                        removed = true;
+                    }
                     break;
                 }
             }
-            if (removed) {
+            if (!removed) {
                 taskQueue.add(task);
-                return;
+            } else {
+                if (!task.update.getAsBoolean()) {
+                    runningTasks.add(task);
+                    consumedResources.addAll(task.resources);
+                }
+                recheckQueue();
             }
         } else {
-            runningTasks.add(task);
-            consumedResources.addAll(task.resources);
+            if (!task.update.getAsBoolean()) {
+                runningTasks.add(task);
+                consumedResources.addAll(task.resources);
+            }
         }
     }
 
@@ -41,15 +49,18 @@ public class TaskRunner {
                 consumedResources.removeAll(runningTasks.get(i).resources);
                 runningTasks.remove(i);
                 i--;
-                // check for newly available tasks
-                for (int j = 0; j < taskQueue.size(); j++) {
-                    if (Collections.disjoint(consumedResources, taskQueue.get(j).resources)) {
-                        runningTasks.add(taskQueue.get(j));
-                        consumedResources.addAll(taskQueue.get(j).resources);
-                        taskQueue.remove(j);
-                        j--;
-                    }
-                }
+                recheckQueue();
+            }
+        }
+    }
+
+    private void recheckQueue() {
+        for (int j = 0; j < taskQueue.size(); j++) {
+            if (Collections.disjoint(consumedResources, taskQueue.get(j).resources)) {
+                runningTasks.add(taskQueue.get(j));
+                consumedResources.addAll(taskQueue.get(j).resources);
+                taskQueue.remove(j);
+                j--;
             }
         }
     }

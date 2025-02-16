@@ -11,19 +11,19 @@ import org.firstinspires.ftc.teamcode.noncents.tasks.Task;
 
 public class Lift {
     public static final long WRIST_DELAY = 1100;
-    public static final double WRIST_TRANSFERRING = 0.80;
-    public static final double WRIST_LIFT = 0.4;
-    public static final double WRIST_SPEC = 0.28;
-    public static final double WRIST_DUMP = 0.15;
+    public static final double WRIST_TRANSFERRING = 0.99;
+    public static final double WRIST_LIFT = 0.50;
+    public static final double WRIST_DUMP = 0.36;
+    public static final double WRIST_SPEC_SCORE = 0.24;
+    public static final double WRIST_SPEC_PICKUP = 0.15;
 
     public static final long CLAW_DELAY = 800;
-    public static final double CLAW_CLOSED = 0.46;
+    public static final double CLAW_CLOSED = 0.455;
     public static final double CLAW_OPENED = 0.56;
 
-    public static final double MOTOR_CLIP_POWER = -0.5;
     public static final int MOTOR_MIN = 0;
-    public static final int MOTOR_CHAMBER_SCORE_SETUP = 800;
-    // public static final int MOTOR_CHAMBER_SCORE_CLIP = 150;
+    public static final int MOTOR_SPECIMEN_PICKUP = 50;
+    public static final int MOTOR_SPECIMEN_SCORE = 750;
     public static final int MOTOR_MAX = 2400;
 
     public final int LIFT_TOLERANCE_TICKS = 10;
@@ -108,7 +108,7 @@ public class Lift {
         pidControlled = true;
     }
 
-    private boolean isHolding;
+    private boolean isHolding = true;
 
     public void setMotorInput(double input) {
         int motorPos = getMotorCurrentPosition();
@@ -122,12 +122,14 @@ public class Lift {
             isHolding = false;
         }
 
+        /*
         int slowdownRange = 150;
         double stallPower = 0.8;
         int maxDist = MOTOR_MAX - motorPos;
         if (maxDist < slowdownRange && input > 0) {
             input *= Math.max(0, (double) maxDist * (1 - stallPower) / slowdownRange + stallPower);
         }
+         */
         /*
         int minDist = Math.abs(motorPos - MOTOR_MIN);
         if (minDist < slowdownRange && input < 0) {

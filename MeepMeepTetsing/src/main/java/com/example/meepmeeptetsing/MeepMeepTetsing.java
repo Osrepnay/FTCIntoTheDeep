@@ -1,10 +1,14 @@
 package com.example.meepmeeptetsing;
 
 import com.acmerobotics.roadrunner.Action;
+import com.acmerobotics.roadrunner.AngularVelConstraint;
 import com.acmerobotics.roadrunner.Pose2d;
+import com.acmerobotics.roadrunner.Rotation2d;
 import com.acmerobotics.roadrunner.SequentialAction;
 import com.acmerobotics.roadrunner.TrajectoryActionBuilder;
+import com.acmerobotics.roadrunner.TranslationalVelConstraint;
 import com.acmerobotics.roadrunner.Vector2d;
+import com.acmerobotics.roadrunner.VelConstraint;
 import com.noahbres.meepmeep.MeepMeep;
 import com.noahbres.meepmeep.roadrunner.DefaultBotBuilder;
 import com.noahbres.meepmeep.roadrunner.entity.RoadRunnerBotEntity;
@@ -43,71 +47,50 @@ public class MeepMeepTetsing {
 
     private static final double TILE = 70.0 / 3;
 
+    private static Rotation2d flip(Rotation2d ang) {
+        return ang.plus(Math.toRadians(180));
+    }
+
     public static void main(String[] args) {
         System.setProperty("sun.java2d.opengl", "true");
         MeepMeep meep = new MeepMeep(800);
         RoadRunnerBotEntity bot = new DefaultBotBuilder(meep)
-                .setConstraints(50, 50, Math.PI, Math.PI, 3768.610311809861 * 165.875 / 56205)
+                .setConstraints(50, 50, Math.PI * 0.8, Math.PI, 3768.610311809861 * 165.875 / 56205)
                 .build();
-        Pose2d basket = new Pose2d(-2.4 * TILE, -2.4 * TILE, Math.toRadians(45));
-        Pose2d first = new Pose2d(-2 * TILE - 0.5, -2 * TILE - 5, Math.toRadians(90));
-        Pose2d firstPushed = forward(first, 8);
-        Pose2d second = new Pose2d(-2.5 * TILE + 2, -2 * TILE - 5, Math.toRadians(88));
-        Pose2d secondPushed = forward(second, 8);
-        Pose2d third = new Pose2d(-2.5 * TILE + -0.5, -2 * TILE - 2, Math.toRadians(109));
-        Pose2d thirdPushed = forward(third, 6);
-        Action sample = new Chainer(bot.getDrive().actionBuilder(new Pose2d(-1.5 * TILE + 2.5, -2.5 * TILE - 5, Math.toRadians(0))))
-                .add(t -> t.strafeToLinearHeading(basket.position, basket.heading))
-                .add(t -> t.endTrajectory().fresh().strafeToLinearHeading(first.position, first.heading))
-                .add(t -> t.endTrajectory().fresh().strafeToConstantHeading(firstPushed.position))
-                .add(t -> t.endTrajectory().fresh()
-                        .setReversed(true)
-                        .splineTo(basket.position, basket.heading.plus(Math.toRadians(180))))
-                .add(t -> t.endTrajectory().fresh().strafeToLinearHeading(second.position, second.heading))
-                .add(t -> t.endTrajectory().fresh().strafeToConstantHeading(secondPushed.position))
-                .add(t -> t.endTrajectory().fresh().strafeToLinearHeading(basket.position, basket.heading))
-                .add(t -> t.endTrajectory().fresh().strafeToLinearHeading(third.position, third.heading))
-                .add(t -> t.endTrajectory().fresh().strafeToConstantHeading(thirdPushed.position))
-                .add(t -> t.endTrajectory().fresh().strafeToLinearHeading(basket.position, basket.heading))
+        Pose2d basket = new Pose2d(-2.37 * TILE, -2.37 * TILE, Math.toRadians(45));
+        Pose2d first = new Pose2d(-2.5 * TILE + 2.5, -1 * TILE - 31.5, Math.toRadians(72.7));
+        Pose2d firstPushed = forward(first, 4);
+        Pose2d second = new Pose2d(-2.5 * TILE + 2, -1 * TILE - 32, Math.toRadians(90));
+        Pose2d secondPushed = forward(second, 4);
+        Pose2d third = new Pose2d(-2.5 * TILE + 6.5, -2.5 * TILE + 6.5, Math.toRadians(119.7));
+        Pose2d thirdPushed = forward(third, 4);
+        VelConstraint pushConstraint = new TranslationalVelConstraint(5);
+        VelConstraint extendoConstraint = new AngularVelConstraint(Math.PI * 0.4);
+        Action sample = bot.getDrive().actionBuilder(new Pose2d(-1.5 * TILE + 2.5, -2.5 * TILE - 5, Math.toRadians(0)))
+                .strafeToLinearHeading(basket.position, basket.heading)
+
+                .endTrajectory().strafeToSplineHeading(first.position, first.heading, extendoConstraint)
+                .endTrajectory().splineTo(firstPushed.position, firstPushed.heading, pushConstraint)
+                .endTrajectory().strafeToSplineHeading(basket.position, basket.heading)
+
+                .endTrajectory().strafeToSplineHeading(second.position, second.heading, extendoConstraint)
+                .endTrajectory().splineTo(secondPushed.position, secondPushed.heading, pushConstraint)
+                .endTrajectory().strafeToSplineHeading(basket.position, basket.heading)
+
+                .endTrajectory().strafeToSplineHeading(third.position, third.heading, extendoConstraint)
+                .endTrajectory().splineTo(thirdPushed.position, thirdPushed.heading, pushConstraint)
+                .setReversed(true).splineTo(basket.position, flip(basket.heading))
+
                 .build();
 
-        Pose2d chamber = new Pose2d(0.5 * TILE - 5, -1.5 * TILE + 1.5, Math.toRadians(-90));
+        Pose2d chamber = new Pose2d(0.5 * TILE - 5, -1.5 * TILE + 2, Math.toRadians(-90));
         Vector2d adjust = new Vector2d(-2.5, 0);
         Pose2d[] chambers = Stream.iterate(chamber, p -> new Pose2d(p.position.plus(adjust), p.heading))
-                .limit(6)
+                .limit(5)
                 .toArray(Pose2d[]::new);
-        Pose2d fromChamberPickup = new Pose2d(1 * TILE - 5, -2.5 * TILE - 3, Math.toRadians(0));
-        Pose2d fromChamberPickupPushed = forward(fromChamberPickup, 11);
-        Pose2d firstSpec = new Pose2d(1 * TILE, -1.7 * TILE, Math.toRadians(30));
-        Pose2d firstSpecPushed = new Pose2d(1 * TILE, -1.7 * TILE, Math.toRadians(30));
-        Action specimen = new Chainer(bot.getDrive().actionBuilder(new Pose2d(0.5 * TILE + 3, -2.5 * TILE - 5.6, Math.toRadians(-90))))
-                .add(t -> t.setReversed(true).splineTo(chambers[0].position, chambers[0].heading.plus(Math.toRadians(180))))
-
-                .add(t -> t.endTrajectory().fresh()
-                        .setReversed(false)
-                        .splineTo(fromChamberPickup.position, fromChamberPickup.heading))
-                .add(t -> t.endTrajectory().fresh()
-                        .splineTo(fromChamberPickupPushed.position, fromChamberPickupPushed.heading))
-                .add(t -> t.endTrajectory().fresh()
-                        .setReversed(true)
-                        .splineTo(chambers[1].position, chambers[1].heading.plus(Math.toRadians(180))))
-
-                .add(t -> t.endTrajectory().fresh()
-                        .setReversed(false)
-                        .splineTo(fromChamberPickup.position, fromChamberPickup.heading))
-                .add(t -> t.endTrajectory().fresh()
-                        .splineTo(fromChamberPickupPushed.position, fromChamberPickupPushed.heading))
-                .add(t -> t.endTrajectory().fresh()
-                        .setReversed(true)
-                        .splineTo(chambers[2].position, chambers[2].heading.plus(Math.toRadians(180))))
-
-                .add(t -> t.endTrajectory().fresh()
-                        .setReversed(false)
-                        .splineTo(firstSpec.position, firstSpec.heading))
-                .add(t -> t.endTrajectory().fresh()
-                        .splineTo(firstSpecPushed.position, firstSpecPushed.heading)
-                        .endTrajectory()
-                        .turn(Math.toRadians(-45)))
+        Pose2d pickup = new Pose2d(1 * TILE - 1, -2.5 * TILE + 1, Math.toRadians(-15));
+        Action specimen = bot.getDrive().actionBuilder(new Pose2d(0.5 * TILE + 3, -2.5 * TILE - 5.6, Math.toRadians(-90)))
+                .setReversed(true).splineTo(chambers[0].position, flip(chambers[0].heading))
                 .build();
 
         bot.runAction(specimen);

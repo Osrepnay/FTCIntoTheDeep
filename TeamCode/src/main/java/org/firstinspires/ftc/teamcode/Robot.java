@@ -9,10 +9,10 @@ import java.util.Optional;
 public class Robot {
     public enum State {
         INTAKE_SAMPLE(false, true),
-        INTAKE_SPEC(false, true),
         EXTEND(false, false),
+        INTAKE_NOEXTEND(false, true),
         TRANSFER(false, false),
-        LIFT(true, false),
+        PICKUP_SPECIMEN(false, false),
         DUMP_SAMPLE(true, false),
         DUMP_SAMPLE_WAIT(true, false),
         DUMP_SPECIMEN(true, false);
@@ -38,6 +38,7 @@ public class Robot {
     public final Extendo extendo;
     public final Lift lift;
     private State state = State.TRANSFER;
+    private boolean transitionDone = false;
 
     public Robot(Extendo extendo, Lift lift) {
         this.extendo = extendo;
@@ -72,11 +73,23 @@ public class Robot {
         Task transition = null;
         switch (state) {
             case INTAKE_SAMPLE:
-            case INTAKE_SPEC:
                 if (input == Input.RIGHT_BUMPER) {
                     target = State.EXTEND;
                     transition = extendo.setIntake(Extendo.INTAKE_OFF)
                             .with(extendo.setWrist(Extendo.WRIST_RAISED));
+                }
+                break;
+            case INTAKE_NOEXTEND:
+                if (input == Input.RIGHT_BUMPER) {
+                    target = State.TRANSFER;
+                    transition = extendo.setIntake(Extendo.INTAKE_OFF)
+                            .with(extendo.setWrist(Extendo.WRIST_TRANSFERRING))
+                            .with(lift.setClaw(Lift.CLAW_OPENED))
+                            .andThen(extendo.setIntake(Extendo.INTAKE_VOMIT))
+                            .andThen(Task.delay(120))
+                            .andThen(lift.setClaw(Lift.CLAW_CLOSED))
+                            .andThen(Task.delay(200))
+                            .andThen(extendo.setIntake(Extendo.INTAKE_OFF));
                 }
                 break;
             case EXTEND:
@@ -84,21 +97,17 @@ public class Robot {
                     target = State.INTAKE_SAMPLE;
                     transition = extendo.setIntake(Extendo.INTAKE_ON)
                             .andThen(extendo.setWrist(Extendo.WRIST_SAMPLE));
-                } else if (input == Input.BUTTON_X) {
-                    target = State.INTAKE_SPEC;
-                    transition = extendo.setIntake(Extendo.INTAKE_ON)
-                            .andThen(extendo.setWrist(Extendo.WRIST_SPEC));
                 } else if (input == Input.RIGHT_BUMPER) {
                     target = State.TRANSFER;
-                    transition = extendo.retract()
-                            .andThen(extendo.setWrist(Extendo.WRIST_TRANSFERRING)
-                                    .with(lift.setClaw(Lift.CLAW_OPENED))
-                                    .andThen(extendo.setIntake(Extendo.INTAKE_VOMIT))
-                                    .andThen(Task.delay(200))
-                                    .andThen(lift.setClaw(Lift.CLAW_CLOSED))
-                                    .andThen(Task.delay(100))
-                                    .andThen(extendo.setIntake(Extendo.INTAKE_OFF))
-                            );
+                    transition = extendo.setWrist(Extendo.WRIST_STAGE)
+                            .with(extendo.retract())
+                            .andThen(extendo.setWrist(Extendo.WRIST_TRANSFERRING))
+                            .with(lift.setClaw(Lift.CLAW_OPENED))
+                            .andThen(extendo.setIntake(Extendo.INTAKE_VOMIT))
+                            .andThen(Task.delay(120))
+                            .andThen(lift.setClaw(Lift.CLAW_CLOSED))
+                            .andThen(Task.delay(200))
+                            .andThen(extendo.setIntake(Extendo.INTAKE_OFF));
                 }
                 break;
             case TRANSFER:
@@ -111,30 +120,39 @@ public class Robot {
                     transition = lift.liftTo(Lift.MOTOR_MAX)
                             .with(lift.setWrist(Lift.WRIST_LIFT))
                             .andThen(lift.setWrist(Lift.WRIST_DUMP));
+                } else if (input == Input.BUTTON_Y) {
+                    target = State.INTAKE_NOEXTEND;
+                    transition = extendo.setWrist(Extendo.WRIST_SAMPLE)
+                            .andThen(extendo.setIntake(Extendo.INTAKE_ON));
                 } else if (input == Input.BUTTON_X) {
-                    target = State.DUMP_SPECIMEN;
-                    transition = lift.liftTo(Lift.MOTOR_CHAMBER_SCORE_SETUP)
-                            .andThen(lift.setWrist(Lift.WRIST_SPEC));
+                    target = State.PICKUP_SPECIMEN;
+                    transition = lift.liftTo(Lift.MOTOR_SPECIMEN_PICKUP)
+                            .with(lift.setWrist(Lift.WRIST_SPEC_PICKUP))
+                            .with(lift.setClaw(Lift.CLAW_OPENED));
                 }
                 break;
-            case LIFT:
-                // TODO dead code
-                /*
+            case PICKUP_SPECIMEN:
                 if (input == Input.LEFT_BUMPER) {
                     target = State.TRANSFER;
-                    transition = lift.retract()
-                            .with(lift.setWrist(Lift.WRIST_TRANSFERRING));
-                } else if (input == Input.BUTTON_X) {
-                    target = State.DUMP_SPECIMEN;
-                    transition = lift.setWrist(Lift.WRIST_SPEC);
+                    transition = lift.setWrist(Lift.WRIST_TRANSFERRING)
+                            .andThen(lift.setClaw(Lift.CLAW_CLOSED)
+                                    .with(lift.retract()));
                 } else if (input == Input.RIGHT_BUMPER) {
-                    target = State.DUMP_SAMPLE;
-                    transition = lift.setWrist(Lift.WRIST_DUMP)
-                            .andThen(lift.setClaw(Lift.CLAW_OPENED))
-                            .andThen(Task.delay(200))
-                            .andThen(transitionTask(Input.DUMPING_SAMPLE_CLAW_DONE));
+                    target = State.DUMP_SPECIMEN;
+                    transition = lift.setClaw(Lift.CLAW_CLOSED)
+                            .andThen(lift.liftTo(Lift.MOTOR_SPECIMEN_SCORE)
+                                    .with(lift.setWrist(Lift.WRIST_SPEC_SCORE)));
+
                 }
-                 */
+                break;
+            case DUMP_SPECIMEN:
+                if (input == Input.LEFT_BUMPER) {
+                    target = State.TRANSFER;
+                    transition = lift.setClaw(Lift.CLAW_OPENED)
+                            .andThen(lift.setWrist(Lift.WRIST_TRANSFERRING))
+                            .andThen(lift.retract()
+                                    .with(lift.setClaw(Lift.CLAW_CLOSED)));
+                }
                 break;
             case DUMP_SAMPLE:
                 if (input == Input.LEFT_BUMPER) {
@@ -154,6 +172,7 @@ public class Robot {
                             .andThen(lift.retract()).with(lift.setWrist(Lift.WRIST_TRANSFERRING));
                 }
                 break;
+                /*
             case DUMP_SPECIMEN:
                 if (input == Input.LEFT_BUMPER) {
                     target = State.TRANSFER;
@@ -169,14 +188,26 @@ public class Robot {
                                     .with(lift.retract()));
                 }
                 break;
+                 */
         }
         State finalTarget = target;
         return Optional.ofNullable(transition)
-                .map(t -> new Task().oneshot(() -> state = finalTarget).andThen(t).resources(this));
+                .map(t -> new Task()
+                        .oneshot(() -> {
+                            state = finalTarget;
+                            transitionDone = false;
+                        })
+                        .andThen(t)
+                        .andThen(new Task().oneshot(() -> transitionDone = true))
+                        .resources(this));
     }
 
     public Task transitionTask(Input input) {
         return Task.defer(() -> getTransition(input).orElse(new Task())).resources(this);
+    }
+
+    public boolean isTransitionDone() {
+        return transitionDone;
     }
 
 }

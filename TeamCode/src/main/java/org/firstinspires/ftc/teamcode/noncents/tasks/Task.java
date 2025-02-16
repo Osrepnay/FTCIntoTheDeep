@@ -72,6 +72,7 @@ public class Task {
                     } else {
                         if (this.update.getAsBoolean()) {
                             thisIsDone[0] = true;
+                            return next.update.getAsBoolean();
                         }
                         return false;
                     }

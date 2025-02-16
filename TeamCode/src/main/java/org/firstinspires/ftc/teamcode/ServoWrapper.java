@@ -18,11 +18,11 @@ public class ServoWrapper {
     }
 
     public Task setPosition(double pos) {
-        double diff = Math.abs(pos - lastChangeTo);
-        Task delayTask = Task.delay((long) (moveDelay * diff));
+        Task[] delayTask = new Task[1];
         boolean[] first = {true};
         return new Task()
-                .update(() -> {
+                .oneshot(() -> delayTask[0] = Task.delay((long) (moveDelay * Math.abs(pos - lastChangeTo))))
+                .andThen(new Task().update(() -> {
                     if (getPosition().map(p -> p == pos).orElse(false)) {
                         return true;
                     } else {
@@ -32,9 +32,9 @@ public class ServoWrapper {
                             servo.setPosition(pos);
                             first[0] = true;
                         }
-                        return delayTask.update.getAsBoolean();
+                        return delayTask[0].update.getAsBoolean();
                     }
-                });
+                }));
     }
 
     // returns none if current position is unknown

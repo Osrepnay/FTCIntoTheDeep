@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
@@ -10,10 +11,10 @@ import org.firstinspires.ftc.teamcode.noncents.tasks.Task;
 
 public class Extendo {
     public static final long WRIST_DELAY = 1400;
-    public static final double WRIST_TRANSFERRING = 0.735;
-    public static final double WRIST_RAISED = 0.18;
-    public static final double WRIST_SPEC = 0.105;
-    public static final double WRIST_SAMPLE = 0.056;
+    public static final double WRIST_TRANSFERRING = 0.98;
+    public static final double WRIST_RAISED = 0.40;
+    public static final double WRIST_STAGE = 0.50;
+    public static final double WRIST_SAMPLE = 0.240;
 
     // public static final long INTAKE_DELAY = 300;
     public static final double INTAKE_OFF = 0;
@@ -22,25 +23,27 @@ public class Extendo {
 
     public static final long EXTENDO_DELAY = 1200;
 
-    public static final double LEFT_RETRACTED = 0.492;
-    public static final double LEFT_EXTENDED = 0.73;
+    public static final double LEFT_RETRACTED = 0.165;
+    public static final double LEFT_EXTENDED = 0.585;
 
-    public static final double RIGHT_RETRACTED = 0.48;
-    public static final double RIGHT_EXTENDED = 0.235;
+    public static final double RIGHT_RETRACTED = 0.79;
+    public static final double RIGHT_EXTENDED = 0.38;
+
+    private static final double MIN_SENSOR_REFRESH_MS = 60;
 
     private final ServoWrapper extendoWrist;
     private final CRServo extendoIntake;
     private final ServoWrapper extendoLeft;
     private final ServoWrapper extendoRight;
-    private final DistanceSensor extendoDist;
+    private final ColorSensor extendoColor;
 
     public Extendo(ServoWrapper extendoWrist, CRServo extendoIntake, ServoWrapper extendoLeft,
-                   ServoWrapper extendoRight, DistanceSensor extendoDist) {
+                   ServoWrapper extendoRight, ColorSensor extendoColor) {
         this.extendoWrist = extendoWrist;
         this.extendoIntake = extendoIntake;
         this.extendoLeft = extendoLeft;
         this.extendoRight = extendoRight;
-        this.extendoDist = extendoDist;
+        this.extendoColor = extendoColor;
     }
 
     public Extendo(HardwareMap hardwareMap) {
@@ -49,7 +52,7 @@ public class Extendo {
                 hardwareMap.get(CRServo.class, "intake"),
                 new ServoWrapper(hardwareMap.get(ServoImplEx.class, "extendoLeft"), EXTENDO_DELAY),
                 new ServoWrapper(hardwareMap.get(ServoImplEx.class, "extendoRight"), EXTENDO_DELAY),
-                hardwareMap.get(DistanceSensor.class, "extendoDist")
+                hardwareMap.get(ColorSensor.class, "extendoDist")
         );
     }
 
@@ -65,8 +68,13 @@ public class Extendo {
         return extendoLeft.setPosition(LEFT_RETRACTED).with(extendoRight.setPosition(RIGHT_RETRACTED)).resources(this);
     }
 
-    public Task extendHalf() {
-        return extendoLeft.setPosition((LEFT_EXTENDED + LEFT_RETRACTED) / 2).with(extendoRight.setPosition((RIGHT_EXTENDED + RIGHT_RETRACTED) / 2)).resources(this);
+    public Task extendPart(double frac) {
+        Lerp left = new Lerp(new double[][]{{0, 1}, {LEFT_RETRACTED, LEFT_EXTENDED}});
+        Lerp right = new Lerp(new double[][]{{0, 1}, {RIGHT_RETRACTED, RIGHT_EXTENDED}});
+        frac = Math.min(1, Math.max(0, frac));
+        return extendoLeft.setPosition(left.interpolate(frac))
+                .with(extendoRight.setPosition(right.interpolate(frac)))
+                .resources(this);
     }
 
     public Task extend() {
@@ -82,25 +90,54 @@ public class Extendo {
                 .resources(this);
     }
 
+    private long lastTime = 0;
+    private double lastDist = 0;
+    private int lastAlpha = 0;
+    private int lastRed = 0;
+    private int lastGreen = 0;
+    private int lastBlue = 0;
+
+    private void updateSensor() {
+        long current = System.currentTimeMillis();
+        if (current - lastTime > MIN_SENSOR_REFRESH_MS) {
+            lastTime = current;
+            lastDist = ((DistanceSensor) extendoColor).getDistance(DistanceUnit.CM);
+            int argb = extendoColor.argb();
+            lastAlpha = (argb & (0xFF000000)) >>> (6 * 4);
+            lastRed = (argb & (0x00FF0000)) >>> (4 * 4);
+            lastGreen = (argb & (0x0000FF00)) >>> (2 * 4);
+            lastBlue = (argb & (0x000000FF));
+        }
+    }
+
+    public double getDistance() {
+        updateSensor();
+        return lastDist;
+    }
+
     public boolean hasSample() {
-        return extendoDist.getDistance(DistanceUnit.CM) < 5;
+        updateSensor();
+        return lastDist < 1 && lastAlpha > 250;
     }
 
     public boolean hasCorrectSample() {
-        /*
-        int[] colors = {extendoColor.red(), extendoColor.green(), extendoColor.blue()};
-        int maxIdx = 0;
-        for (int i = 1; i < colors.length; i++) {
-            if (colors[i] > colors[maxIdx]) {
-                maxIdx = i;
-            }
+        if (!hasSample()) {
+            return false;
         }
-        boolean colorValid = maxIdx == 1
-                || (Color.currentColor == Color.RED
-                ? maxIdx == 0
-                : maxIdx == 2);
-         */
-        return hasSample();
+        updateSensor();
+        int[] colors = {lastRed, lastGreen, lastBlue};
+        System.out.printf("%d %d %d %d\n", lastAlpha, lastRed, lastGreen, lastBlue);
+        if (colors[0] > Math.max(colors[1], colors[2]) * 1.5 && Color.currentColor == Color.RED) {
+            System.out.println("red");
+            return true;
+        } else if (colors[2] > Math.max(colors[1], colors[0]) * 1.5 && Color.currentColor == Color.BLUE) {
+            System.out.println("blue");
+            return true;
+        } else if (colors[1] > colors[0] && colors[1] > colors[2] * 2) {
+            System.out.println("yellow");
+            return true;
+        }
+        return false;
     }
 
 }

@@ -59,8 +59,19 @@ public class Test extends OpMode {
         ));
         inputManager.addTrigger(new Trigger(
                 Trigger.TriggerType.BEGIN,
-                () -> robot.getState().INTAKING && robot.extendo.hasSample(),
-                () -> taskRunner.sendTask(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
+                () -> robot.getState().INTAKING && robot.isTransitionDone() && robot.extendo.hasSample(),
+                () -> {
+                    if (robot.extendo.hasCorrectSample()) {
+                        if (robot.getState() == Robot.State.INTAKE_NOEXTEND) {
+                            taskRunner.sendTask(robot.transitionTask(Robot.Input.RIGHT_BUMPER));
+                        } else {
+                            taskRunner.sendTask(robot.transitionTask(Robot.Input.RIGHT_BUMPER)
+                                    .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER)));
+                        }
+                    } else {
+                        taskRunner.sendTask(robot.extendo.spew());
+                    }
+                }
         ));
         inputManager.addTrigger(new Trigger(
                 Trigger.TriggerType.BEGIN,
@@ -86,6 +97,7 @@ public class Test extends OpMode {
     }
 
     boolean first = true;
+    long last = System.currentTimeMillis();
 
     @Override
     public void loop() {
@@ -112,10 +124,16 @@ public class Test extends OpMode {
         }
 
         telemetry.addData("color", Color.currentColor);
+        if (robot.getState().INTAKING && robot.isTransitionDone()) {
+            telemetry.addData("sensor color", robot.extendo.getDistance());
+        }
         telemetry.addData("state", robot.getState());
         telemetry.addData("panic", panic);
         telemetry.addData("lift", robot.lift.getMotorCurrentPosition());
         telemetry.addData("liftSetpoint", robot.lift.liftSetpoint);
+        long current = System.currentTimeMillis();
+        telemetry.addData("hz", 1000 / (current - last));
+        last = current;
 
         inputManager.update();
         taskRunner.update();

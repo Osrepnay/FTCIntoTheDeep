@@ -35,15 +35,15 @@ public class Bongo extends OpMode {
         inp = new InputManager();
         inp.addTrigger(new Trigger(
                 Trigger.TriggerType.BEGIN,
-                () -> robot.getState().INTAKING && robot.extendo.hasCorrectSample(),
+                () -> robot.getState().INTAKING && robot.extendo.hasSample(),
                 () -> robot.extendo.setIntake(Extendo.INTAKE_OFF)
         ));
-        Pose2d chamber = new Pose2d(0.5 * TILE - 5, -1.5 * TILE + 1.5, Math.toRadians(-90));
+        Pose2d chamber = new Pose2d(0.5 * TILE - 5, -1.5 * TILE + 2, Math.toRadians(-90));
         Vector2d adjust = new Vector2d(-2.5, 0);
         Pose2d[] chambers = Stream.iterate(chamber, p -> new Pose2d(p.position.plus(adjust), p.heading))
                 .limit(6)
                 .toArray(Pose2d[]::new);
-        Pose2d fromChamberPickup = new Pose2d(1 * TILE - 5, -2.5 * TILE - 3, Math.toRadians(0));
+        Pose2d fromChamberPickup = new Pose2d(1 * TILE - 1, -2.5 * TILE + 1, Math.toRadians(-15));
         Pose2d fromChamberPickupPushed = forward(fromChamberPickup, 11);
         Pose2d firstSpec = new Pose2d(1 * TILE, -1.7 * TILE, Math.toRadians(30));
         Pose2d firstSpecPushed = new Pose2d(1 * TILE, -1.7 * TILE, Math.toRadians(30));
@@ -53,6 +53,7 @@ public class Bongo extends OpMode {
                         .splineTo(chambers[0].position, chambers[0].heading.plus(Math.toRadians(180))))
                 .withLast(robot.transitionTask(Robot.Input.BUTTON_X))
                 .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
+
                 .andThen(t -> t.endTrajectory().fresh()
                         .setReversed(false)
                         .splineTo(fromChamberPickup.position, fromChamberPickup.heading))
@@ -64,6 +65,22 @@ public class Bongo extends OpMode {
                 .andThen(t -> t.endTrajectory().fresh()
                         .setReversed(true)
                         .splineTo(chambers[1].position, chambers[1].heading.plus(Math.toRadians(180))))
+                .withLast(robot.transitionTask(Robot.Input.RIGHT_BUMPER)
+                        .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
+                        .andThen(robot.transitionTask(Robot.Input.BUTTON_X)))
+                .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
+
+                .andThen(t -> t.endTrajectory().fresh()
+                        .setReversed(false)
+                        .splineTo(fromChamberPickup.position, fromChamberPickup.heading))
+                .withLast(Task.delay(1000)
+                        .andThen(robot.transitionTask(Robot.Input.LEFT_BUMPER))
+                        .andThen(robot.transitionTask(Robot.Input.BUTTON_X)))
+                .andThen(t -> t.endTrajectory().fresh()
+                        .splineTo(fromChamberPickupPushed.position, fromChamberPickupPushed.heading))
+                .andThen(t -> t.endTrajectory().fresh()
+                        .setReversed(true)
+                        .splineTo(chambers[2].position, chambers[2].heading.plus(Math.toRadians(180))))
                 .withLast(robot.transitionTask(Robot.Input.RIGHT_BUMPER)
                         .andThen(robot.transitionTask(Robot.Input.RIGHT_BUMPER))
                         .andThen(robot.transitionTask(Robot.Input.BUTTON_X)))
