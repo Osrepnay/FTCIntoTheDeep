@@ -9,7 +9,6 @@ import org.firstinspires.ftc.teamcode.noncents.input.Trigger;
 import org.firstinspires.ftc.teamcode.noncents.tasks.Task;
 import org.firstinspires.ftc.teamcode.noncents.tasks.TaskRunner;
 
-import java.util.Arrays;
 import java.util.List;
 
 @TeleOp
@@ -81,12 +80,33 @@ public class Test extends OpMode {
         inputManager.addTrigger(new Trigger(
                 Trigger.TriggerType.BEGIN,
                 () -> gamepad2.dpad_down,
-                () -> {
-                    taskRunner.sendTask(new Task()
-                            .oneshot(() -> robot.lift.setMotorPower(-0.2))
-                            .andThen(new Task().oneshot(() -> robot.lift.resetMotor()))
-                    );
-                }
+                () -> robot.lift.setMotorPower(-0.05)
+        ));
+        inputManager.addTrigger(new Trigger(
+                Trigger.TriggerType.END,
+                () -> gamepad2.dpad_down,
+                () -> taskRunner.sendTask(new Task().oneshot(() -> robot.lift.resetMotor())
+                        .andThen(robot.lift.retract()))
+        ));
+        inputManager.addTrigger(new Trigger(
+                Trigger.TriggerType.BEGIN,
+                () -> gamepad2.dpad_right,
+                () -> taskRunner.sendTask(robot.lift.addOffset(Lift.OFFSET_STEP))
+        ));
+        inputManager.addTrigger(new Trigger(
+                Trigger.TriggerType.BEGIN,
+                () -> gamepad2.dpad_left,
+                () -> taskRunner.sendTask(robot.lift.addOffset(-Lift.OFFSET_STEP))
+        ));
+        inputManager.addTrigger(new Trigger(
+                Trigger.TriggerType.BEGIN,
+                () -> gamepad2.left_bumper,
+                () -> taskRunner.sendTask(robot.extendo.addOffset(-Extendo.OFFSET_STEP))
+        ));
+        inputManager.addTrigger(new Trigger(
+                Trigger.TriggerType.BEGIN,
+                () -> gamepad2.right_bumper,
+                () -> taskRunner.sendTask(robot.extendo.addOffset(Extendo.OFFSET_STEP))
         ));
 
         // bulk reads
@@ -128,7 +148,8 @@ public class Test extends OpMode {
             telemetry.addData("sensor color", robot.extendo.getDistance());
         }
         telemetry.addData("state", robot.getState());
-        telemetry.addData("panic", panic);
+        telemetry.addData("liftOffset", robot.lift.getOffset());
+        telemetry.addData("extendoOffset", robot.extendo.getOffset());
         telemetry.addData("lift", robot.lift.getMotorCurrentPosition());
         telemetry.addData("liftSetpoint", robot.lift.liftSetpoint);
         long current = System.currentTimeMillis();

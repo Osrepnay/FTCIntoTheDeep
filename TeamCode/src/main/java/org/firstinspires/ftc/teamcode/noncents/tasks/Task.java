@@ -24,6 +24,12 @@ public class Task {
         this.resources = resources;
     }
 
+    public Task fromSupplier(Supplier<Task> taskSupplier) {
+        Task[] task = new Task[1];
+        return new Task().oneshot(() -> task[0] = taskSupplier.get())
+                .andThen(new Task().update(task[0].update));
+    }
+
     public Task update(BooleanSupplier update) {
         return new Task(update, this.cancellable, this.resources);
     }

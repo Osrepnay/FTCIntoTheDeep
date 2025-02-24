@@ -11,10 +11,10 @@ import org.firstinspires.ftc.teamcode.noncents.tasks.Task;
 
 public class Extendo {
     public static final long WRIST_DELAY = 1400;
-    public static final double WRIST_TRANSFERRING = 0.98;
-    public static final double WRIST_RAISED = 0.40;
-    public static final double WRIST_STAGE = 0.50;
-    public static final double WRIST_SAMPLE = 0.240;
+    public static final double WRIST_TRANSFERRING = 0.85;
+    public static final double WRIST_RAISED = 0.19;
+    public static final double WRIST_STAGE = 0.35;
+    public static final double WRIST_SAMPLE = 0.10;
 
     // public static final long INTAKE_DELAY = 300;
     public static final double INTAKE_OFF = 0;
@@ -29,9 +29,14 @@ public class Extendo {
     public static final double RIGHT_RETRACTED = 0.79;
     public static final double RIGHT_EXTENDED = 0.38;
 
+    public static final double OFFSET_STEP = (2400.0 - 600) / (2500 - 500) * 300 / 360 / 24;
+
+    private double offset = 0;
+    private double lastSet = 0;
+
     private static final double MIN_SENSOR_REFRESH_MS = 60;
 
-    private final ServoWrapper extendoWrist;
+    public final ServoWrapper extendoWrist;
     private final CRServo extendoIntake;
     private final ServoWrapper extendoLeft;
     private final ServoWrapper extendoRight;
@@ -57,7 +62,7 @@ public class Extendo {
     }
 
     public Task setWrist(double pos) {
-        return extendoWrist.setPosition(pos).resources(this);
+        return extendoWrist.setPosition(pos + offset).with(new Task().oneshot(() -> lastSet = pos)).resources(this);
     }
 
     public Task setIntake(double power) {
@@ -138,6 +143,19 @@ public class Extendo {
             return true;
         }
         return false;
+    }
+
+    public Task addOffset(double offsetChange) {
+        offset += offsetChange;
+        return setWrist(lastSet);
+    }
+
+    public double getOffset() {
+        return offset;
+    }
+
+    public void resetOffset() {
+        offset = 0;
     }
 
 }

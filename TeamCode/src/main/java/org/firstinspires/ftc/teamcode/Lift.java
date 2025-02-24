@@ -9,24 +9,31 @@ import com.qualcomm.robotcore.hardware.VoltageSensor;
 import org.firstinspires.ftc.teamcode.noncents.PIDController;
 import org.firstinspires.ftc.teamcode.noncents.tasks.Task;
 
+import dev.frozenmilk.dairy.cachinghardware.CachingDcMotorEx;
+
 public class Lift {
     public static final long WRIST_DELAY = 1100;
     public static final double WRIST_TRANSFERRING = 0.99;
     public static final double WRIST_LIFT = 0.50;
     public static final double WRIST_DUMP = 0.36;
-    public static final double WRIST_SPEC_SCORE = 0.24;
+    public static final double WRIST_SPEC_SCORE = 0.25;
     public static final double WRIST_SPEC_PICKUP = 0.15;
 
-    public static final long CLAW_DELAY = 800;
-    public static final double CLAW_CLOSED = 0.455;
+    public static final long CLAW_DELAY = 1500;
+    public static final double CLAW_CLOSED = 0.447;
     public static final double CLAW_OPENED = 0.56;
 
     public static final int MOTOR_MIN = 0;
-    public static final int MOTOR_SPECIMEN_PICKUP = 50;
-    public static final int MOTOR_SPECIMEN_SCORE = 750;
+    public static final int MOTOR_SPECIMEN_PICKUP = 40;
+    public static final int MOTOR_SPECIMEN_SCORE = 965;
     public static final int MOTOR_MAX = 2400;
 
     public final int LIFT_TOLERANCE_TICKS = 10;
+
+    public static final double OFFSET_STEP = (2400.0 - 600) / (2500 - 500) * 300 / 360 / 24;
+
+    private double offset = 0;
+    private double lastSet = 0;
 
     private final ServoWrapper liftWrist;
     private final ServoWrapper liftClaw;
@@ -34,10 +41,8 @@ public class Lift {
     private final DcMotorEx liftMotorRight;
     private final VoltageSensor voltageSensor;
 
-    private final PIDController pid = new PIDController(0.008, 0.0001, 0.25, 1000);
-    private final double HOLD_800 = 0.05;
-    private final double HOLD_1600 = 0.10;
-    private final double HOLD_2400 = 0.15;
+    public static PIDController pid = new PIDController(0.006, 0.00002, 0.3, 20000, 0.8, 100);
+    private final double HOLD_MAX = 0.07;
 
     private boolean pidControlled = true;
     public double liftSetpoint = MOTOR_MIN;
@@ -47,8 +52,8 @@ public class Lift {
                 VoltageSensor voltageSensor) {
         this.liftWrist = liftWrist;
         this.liftClaw = liftClaw;
-        this.liftMotorLeft = liftMotorLeft;
-        this.liftMotorRight = liftMotorRight;
+        this.liftMotorLeft = new CachingDcMotorEx(liftMotorLeft);
+        this.liftMotorRight = new CachingDcMotorEx(liftMotorRight);
         this.voltageSensor = voltageSensor;
         liftMotorLeft.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         liftMotorLeft.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -70,22 +75,16 @@ public class Lift {
     public void update() {
         if (pidControlled) {
             double power = pid.update(liftSetpoint, liftMotorLeft.getCurrentPosition());
-            if (liftSetpoint <= 800) {
-                power += HOLD_800;
-            } else if (liftSetpoint < 1600) {
-                power += HOLD_1600;
-            } else {
-                power += HOLD_2400;
-            }
+            power += HOLD_MAX * liftSetpoint / 2400;
             double voltage = voltageSensor.getVoltage();
-            power *= 12 / voltage;
+            power *= 14 / voltage;
             liftMotorLeft.setPower(power);
             liftMotorRight.setPower(power);
         }
     }
 
     public Task setWrist(double pos) {
-        return liftWrist.setPosition(pos).resources(this);
+        return liftWrist.setPosition(pos + offset).with(new Task().oneshot(() -> lastSet = pos)).resources(this);
     }
 
     public Task setClaw(double pos) {
@@ -164,5 +163,18 @@ public class Lift {
         return new Task().update(() -> !pidControlled
                         || Math.abs(getMotorCurrentPosition() - liftSetpoint) <= LIFT_TOLERANCE_TICKS)
                 .resources(this);
+    }
+
+    public Task addOffset(double offsetChange) {
+        offset += offsetChange;
+        return setWrist(lastSet);
+    }
+
+    public double getOffset() {
+        return offset;
+    }
+
+    public void resetOffset() {
+        offset = 0;
     }
 }

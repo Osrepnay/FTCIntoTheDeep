@@ -4,12 +4,15 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
+import dev.frozenmilk.dairy.cachinghardware.CachingDcMotorEx;
+
 public class Drivetrain {
     private final DcMotorEx[] wheels;
 
     public Drivetrain(DcMotorEx[] wheels) {
-        for (DcMotor wheel : wheels) {
-            wheel.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        for (int i = 0; i < wheels.length; i++) {
+            wheels[i] = new CachingDcMotorEx(wheels[i]);
+            wheels[i].setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
         wheels[0].setDirection(DcMotor.Direction.REVERSE);
         wheels[1].setDirection(DcMotor.Direction.REVERSE);
@@ -37,8 +40,8 @@ public class Drivetrain {
         Lerp lateralLerp = forwardLerp;
         Lerp rotateLerp = new Lerp(new double[][] {
                 {0, 0},
-                {0.02, 0.08},
-                {0.7, 0.35},
+                {0.02, 0.1},
+                {0.4, 0.2},
                 {1, 1}
         });;
         forward = forwardLerp.interpolateMagnitude(forward);

@@ -49,16 +49,15 @@ public class Aurug extends OpMode {
                 () -> robot.extendo.setIntake(Extendo.INTAKE_OFF)
         ));
         Pose2d basket = new Pose2d(-2.37 * TILE, -2.37 * TILE, Math.toRadians(45));
-        Pose2d first = new Pose2d(-2.5 * TILE + 2.5, -1 * TILE - 31.5, Math.toRadians(72.7));
-        Pose2d firstPushed = forward(first, 4);
-        Pose2d second = new Pose2d(-2.5 * TILE + 2, -1 * TILE - 32, Math.toRadians(90));
-        Pose2d secondPushed = forward(second, 4);
-        Pose2d third = new Pose2d(-2.5 * TILE + 6.5, -2.5 * TILE + 6.5, Math.toRadians(119.7));
-        Pose2d thirdPushed = forward(third, 4);
+        Pose2d first = new Pose2d(-2.5 * TILE + 2.5, -1 * TILE - 30, Math.toRadians(75));
+        Pose2d firstPushed = forward(first, 5);
+        Pose2d second = new Pose2d(-2.5 * TILE + 0.5, -1 * TILE - 31.7, Math.toRadians(90));
+        Pose2d secondPushed = forward(second, 5);
+        Pose2d third = new Pose2d(-2.5 * TILE + 6.5, -2.5 * TILE + 8, Math.toRadians(119.7));
+        Pose2d thirdPushed = forward(third, 5);
         VelConstraint pushConstraint = new TranslationalVelConstraint(5);
-        VelConstraint extendoConstraint = new AngularVelConstraint(Math.PI * 0.4);
+        VelConstraint extendoConstraint = new AngularVelConstraint(Math.PI * 0.2);
         Task waitRobotTask = new Task().update(() -> robot.isTransitionDone());
-        Action waitRobot = taskToAction(waitRobotTask);
         taskRunner.sendTask(robot.init());
         taskRunner.sendTask(actionToTask(drive.actionBuilder(drive.pose)
                 .afterDisp(0, taskToAction(robot.transitionTask(Robot.Input.RIGHT_BUMPER)))

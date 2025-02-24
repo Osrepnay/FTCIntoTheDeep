@@ -51,6 +51,8 @@ import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 
+import dev.frozenmilk.dairy.cachinghardware.CachingDcMotorEx;
+
 @Config
 public final class MecanumDrive {
     public static class Params {
@@ -73,13 +75,16 @@ public final class MecanumDrive {
         public double kA = 0.00009;
 
         // path profile parameters (in inches)
-        public double maxWheelVel = 50;
-        public double minProfileAccel = -30;
+        // public double maxWheelVel = 50;
+        public double maxWheelVel = 80;
+        public double minProfileAccel = -40; // -30
         public double maxProfileAccel = 50;
 
         // turn profile parameters (in radians)
-        public double maxAngVel = Math.PI * 0.8; // shared with path
-        public double maxAngAccel = Math.PI;
+        // public double maxAngVel = Math.PI * 0.8; // shared with path
+        public double maxAngVel = Math.PI * 1;
+        // public double maxAngAccel = Math.PI;
+        public double maxAngAccel = Math.PI * 1.5;
 
         // path controller gains
         public double axialGain = 4.5;
@@ -217,10 +222,10 @@ public final class MecanumDrive {
 
         // TODO: make sure your config has motors with these names (or change them)
         //   see https://ftc-docs.firstinspires.org/en/latest/hardware_and_software_configuration/configuring/index.html
-        leftFront = hardwareMap.get(DcMotorEx.class, "wheelFrontLeft");
-        leftBack = hardwareMap.get(DcMotorEx.class, "wheelBackLeft");
-        rightBack = hardwareMap.get(DcMotorEx.class, "wheelBackRight");
-        rightFront = hardwareMap.get(DcMotorEx.class, "wheelFrontRight");
+        leftFront = new CachingDcMotorEx(hardwareMap.get(DcMotorEx.class, "wheelFrontLeft"));
+        leftBack = new CachingDcMotorEx(hardwareMap.get(DcMotorEx.class, "wheelBackLeft"));
+        rightBack = new CachingDcMotorEx(hardwareMap.get(DcMotorEx.class, "wheelBackRight"));
+        rightFront = new CachingDcMotorEx(hardwareMap.get(DcMotorEx.class, "wheelFrontRight"));
 
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
